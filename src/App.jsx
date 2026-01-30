@@ -396,30 +396,67 @@ function App() {
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-2">
-                              <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
-                                {habit.name}
-                              </h3>
-                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${successRate > 80 ? 'bg-emerald-500/10 text-emerald-500' :
-                                successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
-                                  'bg-zinc-800 text-zinc-500'
-                                }`}>
-                                {successRate}%
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-3 mt-1">
-                              {habit.target_date && (
-                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                                  Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </span>
-                              )}
-                              {daysRemaining !== null && (
-                                <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
+                            <div className="flex items-start gap-3">
+                              <div className="relative flex items-center justify-center shrink-0">
+                                <svg className="w-10 h-10 -rotate-90">
+                                  <circle
+                                    cx="20"
+                                    cy="20"
+                                    r="18"
+                                    className="stroke-zinc-800 fill-none"
+                                    strokeWidth="3.5"
+                                  />
+                                  <motion.circle
+                                    cx="20"
+                                    cy="20"
+                                    r="18"
+                                    initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
+                                    animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' :
+                                        successRate > 50 ? 'stroke-amber-500' :
+                                          'stroke-rose-500'
+                                      }`}
+                                    strokeWidth="3.5"
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-500' :
+                                    successRate > 50 ? 'text-amber-500' :
+                                      'text-zinc-500'
                                   }`}>
-                                  {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
+                                  {successRate}
                                 </span>
-                              )}
+                              </div>
+
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                    {habit.name}
+                                  </h3>
+                                  <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-500' :
+                                      successRate > 75 ? 'bg-blue-500/10 text-blue-400' :
+                                        successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
+                                          'bg-zinc-800 text-zinc-600'
+                                    }`}>
+                                    {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-3 mt-1">
+                                  {habit.target_date && (
+                                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                      Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </span>
+                                  )}
+                                  {daysRemaining !== null && (
+                                    <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
+                                      }`}>
+                                      {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </>
                         )}
