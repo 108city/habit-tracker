@@ -158,7 +158,7 @@ function App() {
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 font-sans selection:bg-rose-500/30 pb-20">
+    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-4 font-sans selection:bg-rose-500/30 pb-20">
       <div className="max-w-md mx-auto">
         <header className="mb-10 pt-12">
           <div className="flex items-end justify-between mb-8">
@@ -241,8 +241,8 @@ function App() {
                         type="button"
                         onClick={() => setFreqType(type)}
                         className={`flex-1 py-2 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${freqType === type
-                            ? 'bg-zinc-100 text-zinc-900'
-                            : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
+                          ? 'bg-zinc-100 text-zinc-900'
+                          : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
                           }`}
                       >
                         {type}
@@ -269,8 +269,8 @@ function App() {
                           type="button"
                           onClick={() => toggleDay(i)}
                           className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-zinc-800 text-zinc-600'
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-zinc-800 text-zinc-600'
                             }`}
                         >
                           {day}
