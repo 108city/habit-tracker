@@ -8,7 +8,14 @@ function App() {
   const [completions, setCompletions] = useState({}) // { habitId: logObject }
   const [loading, setLoading] = useState(true)
   const [newHabitName, setNewHabitName] = useState('')
+  const [showOptions, setShowOptions] = useState(false)
 
+  // Frequency State
+  const [freqType, setFreqType] = useState('daily') // daily, weekly, days
+  const [freqValue, setFreqValue] = useState(1)
+  const [freqDays, setFreqDays] = useState([]) // [0,1,2,3,4,5,6] for Sun-Sat
+
+  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const today = new Date().toISOString().split('T')[0]
 
   // Load habits and today's completions on mount
@@ -55,17 +62,38 @@ function App() {
     e.preventDefault()
     if (!newHabitName.trim()) return
 
+    const payload = {
+      name: newHabitName,
+      frequency_type: freqType,
+      frequency_value: freqType === 'weekly' ? freqValue : 1,
+      frequency_days: freqType === 'days' ? freqDays : []
+    }
+
     try {
       const { data, error } = await supabase
         .from('habits')
-        .insert([{ name: newHabitName }])
+        .insert([payload])
         .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase Error:', error)
+        throw new Error(error.message || 'Unknown Supabase error')
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Habit was created but no data returned. Check RLS or Project URL.')
+      }
+
       setHabits([data[0], ...habits])
       setNewHabitName('')
+      setShowOptions(false)
+      // Reset defaults
+      setFreqType('daily')
+      setFreqValue(1)
+      setFreqDays([])
     } catch (error) {
-      console.error('Error adding habit:', error.message)
+      console.error('Add Habit Failed:', error)
+      alert(`FAILED TO ADD HABIT:\n\n${error.message}\n\n1. Ensure you ran the SQL schema.\n2. Check if your API Key is correct.\n3. Check browser console for network errors.`)
     }
   }
 
@@ -99,7 +127,7 @@ function App() {
         setCompletions({ ...completions, [habitId]: data[0] })
       }
     } catch (error) {
-      console.error('Error toggling habit:', error.message)
+      console.error('Toggle Habit Failed:', error.message)
     }
   }
 
@@ -114,8 +142,14 @@ function App() {
       if (error) throw error
       setHabits(habits.filter(h => h.id !== id))
     } catch (error) {
-      console.error('Error deleting habit:', error.message)
+      console.error('Delete Habit Failed:', error.message)
     }
+  }
+
+  const toggleDay = (index) => {
+    setFreqDays(prev =>
+      prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
+    )
   }
 
   // Calculate daily progress
@@ -171,23 +205,84 @@ function App() {
           />
         </div>
 
-        {/* Add Habit */}
-        <form onSubmit={addHabit} className="mb-10 group relative">
-          <input
-            type="text"
-            value={newHabitName}
-            onChange={(e) => setNewHabitName(e.target.value)}
-            placeholder="Commit to something..."
-            className="w-full bg-zinc-900/30 border border-zinc-800/50 rounded-2xl px-5 py-4 pr-14 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/40 transition-all placeholder:text-zinc-700 text-base"
-          />
-          <button
-            type="submit"
-            disabled={!newHabitName.trim()}
-            className="absolute right-2.5 top-2.5 p-2 bg-zinc-800 text-zinc-400 rounded-xl hover:bg-rose-500 hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all active:scale-95"
-          >
-            <Plus size={20} />
-          </button>
-        </form>
+        {/* Improved Add Habit Form */}
+        <div className="mb-10 bg-zinc-900/20 border border-zinc-800/50 rounded-3xl overflow-hidden active-focus-within:border-zinc-700 transition-all">
+          <form onSubmit={addHabit} className="p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="text"
+                value={newHabitName}
+                onChange={(e) => setNewHabitName(e.target.value)}
+                onFocus={() => setShowOptions(true)}
+                placeholder="Commit to something..."
+                className="flex-1 bg-transparent border-none focus:ring-0 text-lg placeholder:text-zinc-700 p-1"
+              />
+              <button
+                type="submit"
+                disabled={!newHabitName.trim()}
+                className="p-3 bg-rose-500 text-white rounded-2xl hover:bg-rose-600 disabled:opacity-0 disabled:translate-x-4 transition-all active:scale-90 shadow-lg shadow-rose-900/20"
+              >
+                <Plus size={24} strokeWidth={3} />
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {showOptions && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-4 pt-2 border-t border-zinc-800/50 overflow-hidden"
+                >
+                  <div className="flex gap-2">
+                    {['daily', 'weekly', 'days'].map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFreqType(type)}
+                        className={`flex-1 py-2 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${freqType === type
+                            ? 'bg-zinc-100 text-zinc-900'
+                            : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
+                          }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+
+                  {freqType === 'weekly' && (
+                    <div className="flex items-center justify-between bg-zinc-800/30 p-3 rounded-xl">
+                      <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Times per week</span>
+                      <div className="flex items-center gap-4">
+                        <button type="button" onClick={() => setFreqValue(Math.max(1, freqValue - 1))} className="text-xl font-bold p-1">-</button>
+                        <span className="text-lg font-black text-rose-500 min-w-[2ch] text-center">{freqValue}</span>
+                        <button type="button" onClick={() => setFreqValue(Math.min(7, freqValue + 1))} className="text-xl font-bold p-1">+</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {freqType === 'days' && (
+                    <div className="flex justify-between bg-zinc-800/30 p-3 rounded-xl">
+                      {daysOfWeek.map((day, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => toggleDay(i)}
+                          className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
+                              ? 'bg-rose-500 text-white'
+                              : 'bg-zinc-800 text-zinc-600'
+                            }`}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </form>
+        </div>
 
         {/* List */}
         {loading ? (
