@@ -426,19 +426,21 @@ function App() {
                       </div>
 
                       {!isEditing && (
-                        <div className="flex items-center gap-2">
-                          <div className="flex flex-col gap-1 mr-1">
-                            <button
-                              onClick={() => deleteHabit(habit.id)}
-                              className="p-1.5 text-zinc-800 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
                             <button
                               onClick={() => startEdit(habit)}
-                              className="p-1.5 text-zinc-800 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                              title="Edit Habit"
+                              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
                             >
                               <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => deleteHabit(habit.id)}
+                              title="Delete Habit"
+                              className="p-2 text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </div>
 
