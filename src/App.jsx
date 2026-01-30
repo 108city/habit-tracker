@@ -31,7 +31,7 @@ function App() {
       // Fetch habits
       const { data: habitsData, error: habitsError } = await supabase
         .from('habits')
-        .select('*')
+        .select('*, habit_logs(status, created_at)')
         .order('created_at', { ascending: false })
 
       if (habitsError) throw habitsError
@@ -75,7 +75,7 @@ function App() {
       const { data, error } = await supabase
         .from('habits')
         .insert([payload])
-        .select()
+        .select('*, habit_logs(status, created_at)')
 
       if (error) {
         console.error('Supabase Error:', error)
@@ -96,41 +96,53 @@ function App() {
       setTargetDate('')
     } catch (error) {
       console.error('Add Habit Failed:', error)
-      alert(`FAILED TO ADD HABIT:\n\n${error.message}\n\n1. Ensure you ran the SQL schema.\n2. Check if your API Key is correct.\n3. Check browser console for network errors.`)
+      alert(`FAILED TO ADD HABIT:\n\n${error.message}`)
     }
   }
 
-  const toggleHabit = async (habitId) => {
+  const logStatus = async (habitId, status = 'completed') => {
     const existingLog = completions[habitId]
 
     try {
       if (existingLog) {
-        // Uncheck: Delete the log
-        const { error } = await supabase
-          .from('habit_logs')
-          .delete()
-          .eq('id', existingLog.id)
+        // If clicking the SAME status, delete it (unarchive/uncheck)
+        if (existingLog.status === status) {
+          const { error } = await supabase
+            .from('habit_logs')
+            .delete()
+            .eq('id', existingLog.id)
+          if (error) throw error
 
-        if (error) throw error
-
-        const newCompletions = { ...completions }
-        delete newCompletions[habitId]
-        setCompletions(newCompletions)
+          const newCompletions = { ...completions }
+          delete newCompletions[habitId]
+          setCompletions(newCompletions)
+        } else {
+          // If clicking a DIFFERENT status, update it
+          const { data, error } = await supabase
+            .from('habit_logs')
+            .update({ status })
+            .eq('id', existingLog.id)
+            .select()
+          if (error) throw error
+          setCompletions({ ...completions, [habitId]: data[0] })
+        }
       } else {
-        // Check: Create new log
+        // Create new log
         const { data, error } = await supabase
           .from('habit_logs')
           .insert([{
             habit_id: habitId,
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            status
           }])
           .select()
-
         if (error) throw error
         setCompletions({ ...completions, [habitId]: data[0] })
       }
+      // Re-fetch to update success rates
+      fetchData()
     } catch (error) {
-      console.error('Toggle Habit Failed:', error.message)
+      console.error('Log Status Failed:', error.message)
     }
   }
 
@@ -272,8 +284,8 @@ function App() {
                           type="button"
                           onClick={() => toggleDay(i)}
                           className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-zinc-800 text-zinc-600'
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-zinc-800 text-zinc-600'
                             }`}
                         >
                           {day}
@@ -314,8 +326,22 @@ function App() {
           <div className="space-y-4">
             <AnimatePresence mode='popLayout'>
               {habits.map(habit => {
-                const isCompleted = !!completions[habit.id]
+                const currentStatus = completions[habit.id]?.status
+                const isCompleted = currentStatus === 'completed'
+                const isSkipped = currentStatus === 'skipped'
+
                 const daysRemaining = habit.target_date ? Math.ceil((new Date(habit.target_date) - new Date()) / (1000 * 60 * 60 * 24)) : null
+
+                // Success Rate Calculation
+                const allLogs = habit.habit_logs || []
+                const completedLogs = allLogs.filter(l => l.status === 'completed').length
+                const skippedLogs = allLogs.filter(l => l.status === 'skipped').length
+
+                const habitCreatedDate = new Date(habit.created_at)
+                const daysSinceCreation = Math.max(1, Math.ceil((new Date() - habitCreatedDate) / (1000 * 60 * 60 * 24)))
+
+                const effectiveDays = Math.max(1, daysSinceCreation - skippedLogs)
+                const successRate = Math.min(100, Math.round((completedLogs / effectiveDays) * 100))
 
                 return (
                   <motion.div
@@ -324,48 +350,69 @@ function App() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={`group relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 ${isCompleted
-                      ? 'bg-rose-500/5 border-rose-500/20'
-                      : 'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
+                    className={`group relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
+                        isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
+                          'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                       }`}
                   >
                     <div className="relative z-10 flex items-center justify-between">
                       <div className="flex-1">
-                        <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : 'text-zinc-200'
-                          }`}>
-                          {habit.name}
-                        </h3>
-                        {habit.target_date && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                            {habit.name}
+                          </h3>
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${successRate > 80 ? 'bg-emerald-500/10 text-emerald-500' :
+                              successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
+                                'bg-zinc-800 text-zinc-500'
+                            }`}>
+                            {successRate}%
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-1">
+                          {habit.target_date && (
+                            <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
                               Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </span>
-                            {daysRemaining !== null && (
-                              <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${daysRemaining <= 3 ? 'bg-rose-500/20 text-rose-500' : 'bg-zinc-800 text-zinc-500'
-                                }`}>
-                                {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                          )}
+                          {daysRemaining !== null && (
+                            <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
+                              }`}>
+                              {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => deleteHabit(habit.id)}
-                          className="p-2 text-zinc-700 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="p-2 text-zinc-800 hover:text-rose-500 transition-all active:scale-95"
                         >
                           <Trash2 size={16} />
                         </button>
 
+                        {/* Skip Button */}
                         <button
-                          onClick={() => toggleHabit(habit.id)}
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
-                            ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-zinc-100'
+                          onClick={() => logStatus(habit.id, 'skipped')}
+                          title="Skip (Holiday/Day Off)"
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped
+                              ? 'bg-amber-500 text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                              : 'bg-zinc-900/50 text-zinc-700 hover:text-amber-500 hover:bg-amber-500/10'
                             }`}
                         >
-                          <Check size={20} className={isCompleted ? 'stroke-[3px]' : ''} />
+                          <Coffee size={18} />
+                        </button>
+
+                        {/* Complete Button */}
+                        <button
+                          onClick={() => logStatus(habit.id, 'completed')}
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
+                              ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                              : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
+                            }`}
+                        >
+                          <Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} />
                         </button>
                       </div>
                     </div>
