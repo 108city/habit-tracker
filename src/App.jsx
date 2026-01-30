@@ -14,6 +14,7 @@ function App() {
   const [freqType, setFreqType] = useState('daily') // daily, weekly, days
   const [freqValue, setFreqValue] = useState(1)
   const [freqDays, setFreqDays] = useState([]) // [0,1,2,3,4,5,6] for Sun-Sat
+  const [targetDate, setTargetDate] = useState('')
 
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const today = new Date().toISOString().split('T')[0]
@@ -66,7 +67,8 @@ function App() {
       name: newHabitName,
       frequency_type: freqType,
       frequency_value: freqType === 'weekly' ? freqValue : 1,
-      frequency_days: freqType === 'days' ? freqDays : []
+      frequency_days: freqType === 'days' ? freqDays : [],
+      target_date: targetDate || null
     }
 
     try {
@@ -91,6 +93,7 @@ function App() {
       setFreqType('daily')
       setFreqValue(1)
       setFreqDays([])
+      setTargetDate('')
     } catch (error) {
       console.error('Add Habit Failed:', error)
       alert(`FAILED TO ADD HABIT:\n\n${error.message}\n\n1. Ensure you ran the SQL schema.\n2. Check if your API Key is correct.\n3. Check browser console for network errors.`)
@@ -269,8 +272,8 @@ function App() {
                           type="button"
                           onClick={() => toggleDay(i)}
                           className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
-                            ? 'bg-rose-500 text-white'
-                            : 'bg-zinc-800 text-zinc-600'
+                              ? 'bg-rose-500 text-white'
+                              : 'bg-zinc-800 text-zinc-600'
                             }`}
                         >
                           {day}
@@ -278,6 +281,18 @@ function App() {
                       ))}
                     </div>
                   )}
+
+                  {/* Target Date Picker */}
+                  <div className="bg-zinc-800/30 p-3 rounded-xl">
+                    <div className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-2">Goal Date (Optional)</div>
+                    <input
+                      type="date"
+                      value={targetDate}
+                      onChange={(e) => setTargetDate(e.target.value)}
+                      min={today}
+                      className="w-full bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50 [color-scheme:dark]"
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -300,6 +315,8 @@ function App() {
             <AnimatePresence mode='popLayout'>
               {habits.map(habit => {
                 const isCompleted = !!completions[habit.id]
+                const daysRemaining = habit.target_date ? Math.ceil((new Date(habit.target_date) - new Date()) / (1000 * 60 * 60 * 24)) : null
+
                 return (
                   <motion.div
                     key={habit.id}
@@ -318,6 +335,19 @@ function App() {
                           }`}>
                           {habit.name}
                         </h3>
+                        {habit.target_date && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                              Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                            {daysRemaining !== null && (
+                              <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${daysRemaining <= 3 ? 'bg-rose-500/20 text-rose-500' : 'bg-zinc-800 text-zinc-500'
+                                }`}>
+                                {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3">
