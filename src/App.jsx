@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Check, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Check, Loader2, Trash2, Coffee } from 'lucide-react'
 
 function App() {
   const [habits, setHabits] = useState([])
@@ -338,10 +338,13 @@ function App() {
                 const skippedLogs = allLogs.filter(l => l.status === 'skipped').length
 
                 const habitCreatedDate = new Date(habit.created_at)
-                const daysSinceCreation = Math.max(1, Math.ceil((new Date() - habitCreatedDate) / (1000 * 60 * 60 * 24)))
+                const isValidDate = !isNaN(habitCreatedDate.getTime())
+                const daysSinceCreation = isValidDate
+                  ? Math.max(1, Math.ceil((new Date() - habitCreatedDate) / (1000 * 60 * 60 * 24)))
+                  : 1
 
                 const effectiveDays = Math.max(1, daysSinceCreation - skippedLogs)
-                const successRate = Math.min(100, Math.round((completedLogs / effectiveDays) * 100))
+                const successRate = Math.min(100, Math.round((completedLogs / effectiveDays) * 100)) || 0
 
                 return (
                   <motion.div
@@ -351,8 +354,8 @@ function App() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className={`group relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
-                        isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
-                          'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
+                      isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
+                        'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                       }`}
                   >
                     <div className="relative z-10 flex items-center justify-between">
@@ -362,8 +365,8 @@ function App() {
                             {habit.name}
                           </h3>
                           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${successRate > 80 ? 'bg-emerald-500/10 text-emerald-500' :
-                              successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
-                                'bg-zinc-800 text-zinc-500'
+                            successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
+                              'bg-zinc-800 text-zinc-500'
                             }`}>
                             {successRate}%
                           </span>
@@ -397,8 +400,8 @@ function App() {
                           onClick={() => logStatus(habit.id, 'skipped')}
                           title="Skip (Holiday/Day Off)"
                           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped
-                              ? 'bg-amber-500 text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
-                              : 'bg-zinc-900/50 text-zinc-700 hover:text-amber-500 hover:bg-amber-500/10'
+                            ? 'bg-amber-500 text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                            : 'bg-zinc-900/50 text-zinc-700 hover:text-amber-500 hover:bg-amber-500/10'
                             }`}
                         >
                           <Coffee size={18} />
@@ -408,8 +411,8 @@ function App() {
                         <button
                           onClick={() => logStatus(habit.id, 'completed')}
                           className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
-                              ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                              : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
+                            ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                            : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
                             }`}
                         >
                           <Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} />
