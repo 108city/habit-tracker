@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Check, Loader2, Trash2, Coffee } from 'lucide-react'
+import { Plus, Check, Loader2, Trash2, Pencil, Save, X } from 'lucide-react'
 
 function App() {
   const [habits, setHabits] = useState([])
-  const [completions, setCompletions] = useState({}) // { habitId: logObject }
+  const [completions, setCompletions] = useState({})
   const [loading, setLoading] = useState(true)
   const [newHabitName, setNewHabitName] = useState('')
   const [showOptions, setShowOptions] = useState(false)
 
+  // Edit State
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editDate, setEditDate] = useState('')
+
   // Frequency State
-  const [freqType, setFreqType] = useState('daily') // daily, weekly, days
+  const [freqType, setFreqType] = useState('daily')
   const [freqValue, setFreqValue] = useState(1)
-  const [freqDays, setFreqDays] = useState([]) // [0,1,2,3,4,5,6] for Sun-Sat
+  const [freqDays, setFreqDays] = useState([])
   const [targetDate, setTargetDate] = useState('')
 
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const today = new Date().toISOString().split('T')[0]
 
-  // Load habits and today's completions on mount
   useEffect(() => {
     fetchData()
   }, [])
@@ -27,8 +31,6 @@ function App() {
   const fetchData = async () => {
     try {
       setLoading(true)
-
-      // Fetch habits
       const { data: habitsData, error: habitsError } = await supabase
         .from('habits')
         .select('*, habit_logs(status, created_at)')
@@ -37,7 +39,6 @@ function App() {
       if (habitsError) throw habitsError
       setHabits(habitsData || [])
 
-      // Fetch today's completions
       const { data: logsData, error: logsError } = await supabase
         .from('habit_logs')
         .select('*')
@@ -51,7 +52,6 @@ function App() {
         completionsMap[log.habit_id] = log
       })
       setCompletions(completionsMap)
-
     } catch (error) {
       console.error('Error fetching data:', error.message)
     } finally {
@@ -77,19 +77,10 @@ function App() {
         .insert([payload])
         .select('*, habit_logs(status, created_at)')
 
-      if (error) {
-        console.error('Supabase Error:', error)
-        throw new Error(error.message || 'Unknown Supabase error')
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error('Habit was created but no data returned. Check RLS or Project URL.')
-      }
-
+      if (error) throw error
       setHabits([data[0], ...habits])
       setNewHabitName('')
       setShowOptions(false)
-      // Reset defaults
       setFreqType('daily')
       setFreqValue(1)
       setFreqDays([])
@@ -98,6 +89,28 @@ function App() {
       console.error('Add Habit Failed:', error)
       alert(`FAILED TO ADD HABIT:\n\n${error.message}`)
     }
+  }
+
+  const updateHabit = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('habits')
+        .update({ name: editName, target_date: editDate || null })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setHabits(habits.map(h => h.id === id ? { ...h, name: editName, target_date: editDate || null } : h))
+      setEditingId(null)
+    } catch (error) {
+      console.error('Update Failed:', error.message)
+    }
+  }
+
+  const startEdit = (habit) => {
+    setEditingId(habit.id)
+    setEditName(habit.name)
+    setEditDate(habit.target_date || '')
   }
 
   const logStatus = async (habitId, status = 'completed') => {
@@ -326,6 +339,7 @@ function App() {
           <div className="space-y-4">
             <AnimatePresence mode='popLayout'>
               {habits.map(habit => {
+                const isEditing = editingId === habit.id
                 const currentStatus = completions[habit.id]?.status
                 const isCompleted = currentStatus === 'completed'
                 const isSkipped = currentStatus === 'skipped'
@@ -360,64 +374,97 @@ function App() {
                   >
                     <div className="relative z-10 flex items-center justify-between">
                       <div className="flex-1">
+                        {isEditing ? (
+                          <div className="space-y-3 pr-4">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-500"
+                            />
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={(e) => setEditDate(e.target.value)}
+                                className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-[10px] [color-scheme:dark]"
+                              />
+                              <div className="flex-1" />
+                              <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+                              <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-rose-500 text-white rounded-lg"><Save size={16} /></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                {habit.name}
+                              </h3>
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${successRate > 80 ? 'bg-emerald-500/10 text-emerald-500' :
+                                successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
+                                  'bg-zinc-800 text-zinc-500'
+                                }`}>
+                                {successRate}%
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3 mt-1">
+                              {habit.target_date && (
+                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                  Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
+                              {daysRemaining !== null && (
+                                <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
+                                  }`}>
+                                  {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {!isEditing && (
                         <div className="flex items-center gap-2">
-                          <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
-                            {habit.name}
-                          </h3>
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${successRate > 80 ? 'bg-emerald-500/10 text-emerald-500' :
-                            successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
-                              'bg-zinc-800 text-zinc-500'
-                            }`}>
-                            {successRate}%
-                          </span>
+                          <div className="flex flex-col gap-1 mr-1">
+                            <button
+                              onClick={() => deleteHabit(habit.id)}
+                              className="p-1.5 text-zinc-800 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => startEdit(habit)}
+                              className="p-1.5 text-zinc-800 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+
+                          {/* Skip Button (Sleep Emoji) */}
+                          <button
+                            onClick={() => logStatus(habit.id, 'skipped')}
+                            className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped
+                              ? 'bg-amber-500/20 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                              : 'bg-zinc-900/50 text-zinc-700 hover:bg-amber-500/5'
+                              }`}
+                          >
+                            😴
+                          </button>
+
+                          {/* Complete Button */}
+                          <button
+                            onClick={() => logStatus(habit.id, 'completed')}
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
+                              ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                              : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
+                              }`}
+                          >
+                            <Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} />
+                          </button>
                         </div>
-
-                        <div className="flex items-center gap-3 mt-1">
-                          {habit.target_date && (
-                            <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                              Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          )}
-                          {daysRemaining !== null && (
-                            <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
-                              }`}>
-                              {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => deleteHabit(habit.id)}
-                          className="p-2 text-zinc-800 hover:text-rose-500 transition-all active:scale-95"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-
-                        {/* Skip Button */}
-                        <button
-                          onClick={() => logStatus(habit.id, 'skipped')}
-                          title="Skip (Holiday/Day Off)"
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped
-                            ? 'bg-amber-500 text-zinc-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
-                            : 'bg-zinc-900/50 text-zinc-700 hover:text-amber-500 hover:bg-amber-500/10'
-                            }`}
-                        >
-                          <Coffee size={18} />
-                        </button>
-
-                        {/* Complete Button */}
-                        <button
-                          onClick={() => logStatus(habit.id, 'completed')}
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
-                            ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                            : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
-                            }`}
-                        >
-                          <Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} />
-                        </button>
-                      </div>
+                      )}
                     </div>
                   </motion.div>
                 )
