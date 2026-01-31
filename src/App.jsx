@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Check, Loader2, Trash2, Pencil, Save, X } from 'lucide-react'
+import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 
 function App() {
   const [habits, setHabits] = useState([])
@@ -9,6 +9,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [newHabitName, setNewHabitName] = useState('')
   const [showOptions, setShowOptions] = useState(false)
+  const [expandedHistory, setExpandedHistory] = useState(null) // ID of habit with open history
 
   // Edit State
   const [editingId, setEditingId] = useState(null)
@@ -33,29 +34,58 @@ function App() {
       setLoading(true)
       const { data: habitsData, error: habitsError } = await supabase
         .from('habits')
-        .select('*, habit_logs(status, created_at)')
+        .select('*, habit_logs(*)')
         .order('created_at', { ascending: false })
 
       if (habitsError) throw habitsError
       setHabits(habitsData || [])
 
-      const { data: logsData, error: logsError } = await supabase
-        .from('habit_logs')
-        .select('*')
-        .gte('completed_at', `${today}T00:00:00`)
-        .lte('completed_at', `${today}T23:59:59`)
-
-      if (logsError) throw logsError
-
+      // Map logs for today's display
       const completionsMap = {}
-      logsData.forEach(log => {
-        completionsMap[log.habit_id] = log
+      habitsData?.forEach(habit => {
+        const todayLog = habit.habit_logs?.find(log =>
+          log.completed_at.split('T')[0] === today
+        )
+        if (todayLog) completionsMap[habit.id] = todayLog
       })
       setCompletions(completionsMap)
     } catch (error) {
       console.error('Error fetching data:', error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const toggleHistoryDay = async (habitId, dateStr, currentStatus) => {
+    // Determine next status: completed -> skipped -> none -> completed
+    let nextStatus = 'completed'
+    if (currentStatus === 'completed') nextStatus = 'skipped'
+    else if (currentStatus === 'skipped') nextStatus = null
+
+    try {
+      const { data: existingLogs } = await supabase
+        .from('habit_logs')
+        .select('*')
+        .eq('habit_id', habitId)
+        .gte('completed_at', `${dateStr}T00:00:00`)
+        .lte('completed_at', `${dateStr}T23:59:59`)
+
+      if (existingLogs?.length > 0) {
+        if (!nextStatus) {
+          await supabase.from('habit_logs').delete().eq('id', existingLogs[0].id)
+        } else {
+          await supabase.from('habit_logs').update({ status: nextStatus }).eq('id', existingLogs[0].id)
+        }
+      } else if (nextStatus) {
+        await supabase.from('habit_logs').insert([{
+          habit_id: habitId,
+          completed_at: `${dateStr}T12:00:00`,
+          status: nextStatus
+        }])
+      }
+      fetchData() // Refresh view
+    } catch (error) {
+      console.error('Toggle History Failed:', error.message)
     }
   }
 
@@ -367,12 +397,12 @@ function App() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={`group relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
-                      isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
-                        'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
+                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
+                        isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
+                          'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                       }`}
                   >
-                    <div className="relative z-10 flex items-center justify-between">
+                    <div className="p-5 relative z-10 flex items-center justify-between">
                       <div className="flex-1">
                         {isEditing ? (
                           <div className="space-y-3 pr-4">
@@ -395,116 +425,99 @@ function App() {
                             </div>
                           </div>
                         ) : (
-                          <>
-                            <div className="flex items-start gap-3">
-                              <div className="relative flex items-center justify-center shrink-0">
-                                <svg className="w-10 h-10 -rotate-90">
-                                  <circle
-                                    cx="20"
-                                    cy="20"
-                                    r="18"
-                                    className="stroke-zinc-800 fill-none"
-                                    strokeWidth="3.5"
-                                  />
-                                  <motion.circle
-                                    cx="20"
-                                    cy="20"
-                                    r="18"
-                                    initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
-                                    animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
-                                    transition={{ duration: 1, ease: "easeOut" }}
-                                    className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' :
-                                        successRate > 50 ? 'stroke-amber-500' :
-                                          'stroke-rose-500'
-                                      }`}
-                                    strokeWidth="3.5"
-                                    strokeLinecap="round"
-                                  />
-                                </svg>
-                                <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-500' :
-                                    successRate > 50 ? 'text-amber-500' :
-                                      'text-zinc-500'
-                                  }`}>
-                                  {successRate}
-                                </span>
+                          <div className="flex items-start gap-3">
+                            <div className="relative flex items-center justify-center shrink-0">
+                              <svg className="w-10 h-10 -rotate-90">
+                                <circle cx="20" cy="20" r="18" className="stroke-zinc-800 fill-none" strokeWidth="3.5" />
+                                <motion.circle
+                                  cx="20" cy="20" r="18"
+                                  initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
+                                  animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
+                                  transition={{ duration: 1, ease: "easeOut" }}
+                                  className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-amber-500' : 'stroke-rose-500'}`}
+                                  strokeWidth="3.5" strokeLinecap="round"
+                                />
+                              </svg>
+                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-500' : successRate > 50 ? 'text-amber-500' : 'text-zinc-500'}`}>
+                                {successRate}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                  {habit.name}
+                                </h3>
+                                <button
+                                  onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
+                                  className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+                                >
+                                  <Calendar size={12} />
+                                </button>
                               </div>
-
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
-                                    {habit.name}
-                                  </h3>
-                                  <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-500' :
-                                      successRate > 75 ? 'bg-blue-500/10 text-blue-400' :
-                                        successRate > 50 ? 'bg-amber-500/10 text-amber-500' :
-                                          'bg-zinc-800 text-zinc-600'
-                                    }`}>
-                                    {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-500' : successRate > 75 ? 'bg-blue-500/10 text-blue-400' : successRate > 50 ? 'bg-amber-500/10 text-amber-500' : 'bg-zinc-800 text-zinc-600'}`}>
+                                  {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
+                                </span>
+                                {daysRemaining !== null && (
+                                  <span className={`text-[10px] font-black uppercase ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'}`}>
+                                    {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
                                   </span>
-                                </div>
-
-                                <div className="flex items-center gap-3 mt-1">
-                                  {habit.target_date && (
-                                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                                      Goal: {new Date(habit.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                  )}
-                                  {daysRemaining !== null && (
-                                    <span className={`text-[10px] font-black uppercase rounded ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'
-                                      }`}>
-                                      {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
-                                    </span>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             </div>
-                          </>
+                          </div>
                         )}
                       </div>
 
                       {!isEditing && (
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
-                            <button
-                              onClick={() => startEdit(habit)}
-                              title="Edit Habit"
-                              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => deleteHabit(habit.id)}
-                              title="Delete Habit"
-                              className="p-2 text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
+                            <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                           </div>
-
-                          {/* Skip Button (Sleep Emoji) */}
-                          <button
-                            onClick={() => logStatus(habit.id, 'skipped')}
-                            className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped
-                              ? 'bg-amber-500/20 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-                              : 'bg-zinc-900/50 text-zinc-700 hover:bg-amber-500/5'
-                              }`}
-                          >
-                            😴
-                          </button>
-
-                          {/* Complete Button */}
-                          <button
-                            onClick={() => logStatus(habit.id, 'completed')}
-                            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted
-                              ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                              : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'
-                              }`}
-                          >
-                            <Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} />
-                          </button>
+                          <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
+                          <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
                         </div>
                       )}
                     </div>
+
+                    {/* History Grid */}
+                    <AnimatePresence>
+                      {expandedHistory === habit.id && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="px-5 pb-5 pt-2 border-t border-zinc-800/50"
+                        >
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3">Last 14 Days</div>
+                          <div className="grid grid-cols-7 gap-2">
+                            {[...Array(14)].map((_, i) => {
+                              const d = new Date();
+                              d.setDate(d.getDate() - (13 - i));
+                              const dateStr = d.toISOString().split('T')[0];
+                              const log = habit.habit_logs?.find(l => l.completed_at.split('T')[0] === dateStr);
+                              const status = log?.status;
+
+                              return (
+                                <button
+                                  key={i}
+                                  onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
+                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500' :
+                                      status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                        dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                          'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
+                                    }`}
+                                >
+                                  <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                                  <span className="text-[10px] font-black">{d.getDate()}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )
               })}
