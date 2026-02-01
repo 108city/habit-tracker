@@ -220,16 +220,19 @@ function App() {
       <div className="max-w-md mx-auto">
         <header className="mb-10 pt-12">
           <div className="flex items-end justify-between mb-8">
-            <div>
-              <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent italic leading-tight">
-                SOSE
-              </h1>
-              <p className="text-zinc-500 text-[10px] uppercase tracking-[0.2em] font-bold mt-1">
-                Some Of Small Efforts
-              </p>
-              <p className="text-zinc-600 text-[9px] uppercase tracking-[0.1em] font-medium mt-0.5 opacity-50">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-              </p>
+            <div className="flex items-center gap-4">
+              <img src="/sose_logo.png" alt="SOSE Logo" className="w-16 h-16 rounded-2xl shadow-2xl shadow-purple-900/40 border border-purple-500/20" />
+              <div>
+                <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white via-purple-300 to-purple-600 bg-clip-text text-transparent italic leading-tight">
+                  SOSE
+                </h1>
+                <p className="text-purple-400 text-[10px] uppercase tracking-[0.2em] font-bold mt-1">
+                  Some Of Small Efforts
+                </p>
+                <p className="text-zinc-600 text-[9px] uppercase tracking-[0.1em] font-medium mt-0.5 opacity-50">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                </p>
+              </div>
             </div>
             <div className="text-right">
               <div className="text-3xl font-mono font-black text-purple-500 leading-none">
@@ -262,7 +265,7 @@ function App() {
             initial={{ width: 0 }}
             animate={{ width: `${progressPercent}%` }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="h-full bg-gradient-to-r from-purple-600 to-red-600 shadow-[0_0_12px_rgba(147,51,234,0.4)]"
+            className="h-full bg-gradient-to-r from-red-600 via-purple-600 to-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
           />
         </div>
 
@@ -437,17 +440,17 @@ function App() {
                                   initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
                                   animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
                                   transition={{ duration: 1, ease: "easeOut" }}
-                                  className={`fill-none ${successRate > 80 ? 'stroke-purple-600' : successRate > 50 ? 'stroke-red-500' : 'stroke-zinc-800'}`}
+                                  className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-purple-500' : 'stroke-red-600'}`}
                                   strokeWidth="3.5" strokeLinecap="round"
                                 />
                               </svg>
-                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-purple-400' : successRate > 50 ? 'text-red-400' : 'text-zinc-500'}`}>
+                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-400' : successRate > 50 ? 'text-purple-400' : 'text-red-400'}`}>
                                 {successRate}
                               </span>
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-purple-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
                                   {habit.name}
                                 </h3>
                                 <button
@@ -458,7 +461,7 @@ function App() {
                                 </button>
                               </div>
                               <div className="flex items-center gap-3 mt-1">
-                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-purple-500/10 text-purple-400' : successRate > 75 ? 'bg-red-500/10 text-red-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
                                   {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
                                 </span>
                                 {daysRemaining !== null && (
@@ -506,10 +509,10 @@ function App() {
                                 <button
                                   key={i}
                                   onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
-                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-purple-500/20 border-purple-500/40 text-purple-400' :
-                                    status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                      dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                        'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
+                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                                      status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                        dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                          'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
                                     }`}
                                 >
                                   <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
