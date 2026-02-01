@@ -222,9 +222,12 @@ function App() {
           <div className="flex items-end justify-between mb-8">
             <div>
               <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent italic leading-tight">
-                GRIND
+                SOSE
               </h1>
               <p className="text-zinc-500 text-[10px] uppercase tracking-[0.2em] font-bold mt-1">
+                Some Of Small Efforts
+              </p>
+              <p className="text-zinc-600 text-[9px] uppercase tracking-[0.1em] font-medium mt-0.5 opacity-50">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               </p>
             </div>
@@ -398,8 +401,8 @@ function App() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
-                        isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
-                          'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
+                      isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
+                        'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                       }`}
                   >
                     <div className="p-5 relative z-10 flex items-center justify-between">
@@ -504,9 +507,9 @@ function App() {
                                   key={i}
                                   onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
                                   className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500' :
-                                      status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                        dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                          'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
+                                    status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                      dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                        'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
                                     }`}
                                 >
                                   <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>

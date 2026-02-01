@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Gregs Habit Tracker',
-        short_name: 'Habits',
+        name: 'Some Of Small Efforts',
+        short_name: 'SOSE',
         description: 'Track your daily habits',
         theme_color: '#ffffff',
         icons: [
