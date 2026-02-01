@@ -22,6 +22,11 @@ function App() {
   const [freqDays, setFreqDays] = useState([])
   const [targetDate, setTargetDate] = useState('')
 
+  // Milestones State
+  const [milestones, setMilestones] = useState([])
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false)
+  const [newMilestone, setNewMilestone] = useState({ title: '', start_date: today, end_date: '' })
+
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const today = new Date().toISOString().split('T')[0]
 
@@ -39,6 +44,13 @@ function App() {
 
       if (habitsError) throw habitsError
       setHabits(habitsData || [])
+
+      // Fetch Milestones
+      const { data: milestonesData } = await supabase
+        .from('milestones')
+        .select('*')
+        .order('end_date', { ascending: true })
+      setMilestones(milestonesData || [])
 
       // Map logs for today's display
       const completionsMap = {}
@@ -210,6 +222,33 @@ function App() {
     )
   }
 
+  const addMilestone = async (e) => {
+    e.preventDefault()
+    if (!newMilestone.title || !newMilestone.end_date) return
+    try {
+      const { data, error } = await supabase
+        .from('milestones')
+        .insert([newMilestone])
+        .select()
+      if (error) throw error
+      setMilestones([...milestones, data[0]])
+      setNewMilestone({ title: '', start_date: today, end_date: '' })
+      setShowMilestoneForm(false)
+    } catch (error) {
+      console.error('Add Milestone Failed:', error.message)
+    }
+  }
+
+  const deleteMilestone = async (id) => {
+    if (!confirm('Delete this milestone?')) return
+    try {
+      await supabase.from('milestones').delete().eq('id', id)
+      setMilestones(milestones.filter(m => m.id !== id))
+    } catch (error) {
+      console.error('Delete Milestone Failed:', error.message)
+    }
+  }
+
   // Calculate daily progress
   const completedCount = Object.keys(completions).length
   const totalCount = habits.length
@@ -256,6 +295,123 @@ function App() {
                 {totalCount > 0 ? (progressPercent > 80 ? 'Elite' : 'Active') : 'Ready'}
               </div>
             </div>
+          </div>
+
+          {/* Milestones Section */}
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Current Milestones</h2>
+              <button
+                onClick={() => setShowMilestoneForm(!showMilestoneForm)}
+                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-widest"
+              >
+                {showMilestoneForm ? 'Cancel' : '+ New Block'}
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {showMilestoneForm && (
+                <motion.form
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  onSubmit={addMilestone}
+                  className="bg-zinc-900/40 border border-zinc-800/50 p-4 rounded-2xl space-y-3 overflow-hidden"
+                >
+                  <input
+                    type="text"
+                    placeholder="Block Title (e.g. 75 Hard)"
+                    value={newMilestone.title}
+                    onChange={e => setNewMilestone({ ...newMilestone, title: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:border-purple-500 outline-none"
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[8px] uppercase font-black text-zinc-600 ml-1">Start</label>
+                      <input
+                        type="date"
+                        value={newMilestone.start_date}
+                        onChange={e => setNewMilestone({ ...newMilestone, start_date: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] [color-scheme:dark]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] uppercase font-black text-zinc-600 ml-1">End</label>
+                      <input
+                        type="date"
+                        value={newMilestone.end_date}
+                        onChange={e => setNewMilestone({ ...newMilestone, end_date: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] [color-scheme:dark]"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-500 transition-colors">
+                    Initialize Block
+                  </button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            {milestones.filter(m => new Date(m.end_date) >= new Date(today)).map(m => {
+              const start = new Date(m.start_date)
+              const end = new Date(m.end_date)
+              const now = new Date()
+              const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+              const daysPassed = Math.max(0, Math.ceil((now - start) / (1000 * 60 * 60 * 24)))
+              const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)))
+              const timeProgress = Math.min(100, Math.round((daysPassed / totalDays) * 100))
+
+              // Milestone Success Rate
+              let milestoneCompletions = 0
+              let totalPossible = 0
+              habits.forEach(h => {
+                const logs = h.habit_logs?.filter(l => {
+                  const logDate = l.completed_at.split('T')[0]
+                  return logDate >= m.start_date && logDate <= m.end_date
+                }) || []
+                milestoneCompletions += logs.filter(l => l.status === 'completed').length
+
+                // Effective days for this habit within the milestone
+                const habitCreated = new Date(h.created_at)
+                const effectiveStart = habitCreated > start ? habitCreated : start
+                const effectiveEnd = now < end ? now : end
+                const daysInRange = Math.max(1, Math.ceil((effectiveEnd - effectiveStart) / (1000 * 60 * 60 * 24)))
+                const skips = logs.filter(l => l.status === 'skipped').length
+                totalPossible += Math.max(0, daysInRange - skips)
+              })
+              const mSuccessRate = totalPossible > 0 ? Math.round((milestoneCompletions / totalPossible) * 100) : 0
+
+              return (
+                <div key={m.id} className="relative bg-zinc-900 border border-zinc-800 p-5 rounded-3xl overflow-hidden group">
+                  <div className="absolute top-0 left-0 h-full bg-purple-600/5 transition-all duration-1000" style={{ width: `${timeProgress}%` }} />
+                  <div className="relative flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-white mb-1 uppercase italic">{m.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{daysLeft} Days Remaining</span>
+                        <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                        <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">{timeProgress}% Time Elapsed</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-mono font-black ${mSuccessRate > 80 ? 'text-emerald-500' : mSuccessRate > 50 ? 'text-purple-500' : 'text-red-500'}`}>
+                        {mSuccessRate}%
+                      </div>
+                      <div className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Block Success</div>
+                    </div>
+                  </div>
+                  <div className="relative h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-600" style={{ width: `${timeProgress}%` }} />
+                  </div>
+                  <button onClick={() => deleteMilestone(m.id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-1 text-zinc-700 hover:text-red-500 transition-all">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </header>
 
@@ -510,9 +666,9 @@ function App() {
                                   key={i}
                                   onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
                                   className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                                      status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                        dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                          'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
+                                    status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                      dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                        'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
                                     }`}
                                 >
                                   <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
