@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp, Trophy, Sparkles } from 'lucide-react'
+import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp, Trophy, Sparkles, Archive } from 'lucide-react'
 
 function App() {
   const today = new Date().toLocaleDateString('sv-SE')
@@ -17,11 +17,17 @@ function App() {
   // Edit State
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  const [editFreqType, setEditFreqType] = useState('daily')
+  const [editFreqValue, setEditFreqValue] = useState(1)
+  const [editFreqDays, setEditFreqDays] = useState([])
 
-  // Frequency State
+  // Frequency State (for new habits)
   const [freqType, setFreqType] = useState('daily')
   const [freqValue, setFreqValue] = useState(1)
   const [freqDays, setFreqDays] = useState([])
+
+  // Archived Habits
+  const [archivedHabits, setArchivedHabits] = useState([])
 
   // Navigation State
   const [activeView, setActiveView] = useState('today') // 'today' | 'archive'
@@ -40,13 +46,23 @@ function App() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      // Fetch active habits
       const { data: habitsData, error: habitsError } = await supabase
         .from('habits')
         .select('*, habit_logs(*)')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
 
       if (habitsError) throw habitsError
       setHabits(habitsData || [])
+
+      // Fetch archived habits
+      const { data: archivedData } = await supabase
+        .from('habits')
+        .select('*, habit_logs(*)')
+        .eq('is_active', false)
+        .order('created_at', { ascending: false })
+      setArchivedHabits(archivedData || [])
 
       // Fetch Milestones
       const { data: milestonesData } = await supabase
@@ -138,12 +154,23 @@ function App() {
     try {
       const { error } = await supabase
         .from('habits')
-        .update({ name: editName })
+        .update({
+          name: editName,
+          frequency_type: editFreqType,
+          frequency_value: editFreqValue,
+          frequency_days: editFreqDays
+        })
         .eq('id', id)
 
       if (error) throw error
 
-      setHabits(habits.map(h => h.id === id ? { ...h, name: editName } : h))
+      setHabits(habits.map(h => h.id === id ? {
+        ...h,
+        name: editName,
+        frequency_type: editFreqType,
+        frequency_value: editFreqValue,
+        frequency_days: editFreqDays
+      } : h))
       setEditingId(null)
     } catch (error) {
       console.error('Update Failed:', error.message)
@@ -153,6 +180,9 @@ function App() {
   const startEdit = (habit) => {
     setEditingId(habit.id)
     setEditName(habit.name)
+    setEditFreqType(habit.frequency_type || 'daily')
+    setEditFreqValue(habit.frequency_value || 1)
+    setEditFreqDays(habit.frequency_days || [])
   }
 
   const logStatus = async (habitId, status = 'completed') => {
@@ -232,8 +262,42 @@ function App() {
     }
   }
 
+  const archiveHabit = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('habits')
+        .update({ is_active: false })
+        .eq('id', id)
+
+      if (error) throw error
+      fetchData() // Refresh to move habit to archived list
+    } catch (error) {
+      console.error('Archive Habit Failed:', error.message)
+    }
+  }
+
+  const reactivateHabit = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('habits')
+        .update({ is_active: true })
+        .eq('id', id)
+
+      if (error) throw error
+      fetchData() // Refresh to move habit back to active list
+    } catch (error) {
+      console.error('Reactivate Habit Failed:', error.message)
+    }
+  }
+
   const toggleDay = (index) => {
     setFreqDays(prev =>
+      prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
+    )
+  }
+
+  const toggleEditDay = (index) => {
+    setEditFreqDays(prev =>
       prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
     )
   }
@@ -651,6 +715,37 @@ function App() {
                   })
                 )}
               </div>
+
+              {/* Archived Habits Section */}
+              <div className="mt-8">
+                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">Archived Habits</h2>
+                {archivedHabits.length === 0 ? (
+                  <div className="text-center py-12 px-6 border-2 border-dashed border-zinc-900 rounded-3xl">
+                    <p className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest">No archived habits.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {archivedHabits.map(habit => (
+                      <div key={habit.id} className="bg-zinc-950 border border-zinc-900/50 p-4 rounded-2xl group flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-bold text-zinc-500">{habit.name}</h4>
+                          <p className="text-[8px] text-zinc-700 uppercase font-bold mt-1 tracking-widest">
+                            {habit.frequency_type === 'daily' ? 'Daily' :
+                              habit.frequency_type === 'weekly' ? `${habit.frequency_value}x/week` :
+                                `${daysOfWeek.filter((_, i) => (habit.frequency_days || []).includes(i)).join(', ')}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => reactivateHabit(habit.id)}
+                          className="px-4 py-2 bg-purple-900/40 text-purple-400 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-purple-900/60 transition-all"
+                        >
+                          Reactivate
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </header>
@@ -812,6 +907,55 @@ function App() {
                                     onChange={(e) => setEditName(e.target.value)}
                                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
                                   />
+
+                                  {/* Frequency Selector */}
+                                  <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                      {['daily', 'weekly', 'days'].map(type => (
+                                        <button
+                                          key={type}
+                                          type="button"
+                                          onClick={() => setEditFreqType(type)}
+                                          className={`flex-1 py-1.5 text-[9px] uppercase font-black tracking-widest rounded-lg transition-all ${editFreqType === type
+                                            ? 'bg-zinc-100 text-zinc-900'
+                                            : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
+                                            }`}
+                                        >
+                                          {type}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {editFreqType === 'weekly' && (
+                                      <div className="flex items-center justify-between bg-zinc-800/30 p-2 rounded-lg">
+                                        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Times/week</span>
+                                        <div className="flex items-center gap-3">
+                                          <button type="button" onClick={() => setEditFreqValue(Math.max(1, editFreqValue - 1))} className="text-sm font-bold p-1">-</button>
+                                          <span className="text-sm font-black text-purple-500 min-w-[2ch] text-center">{editFreqValue}</span>
+                                          <button type="button" onClick={() => setEditFreqValue(Math.min(7, editFreqValue + 1))} className="text-sm font-bold p-1">+</button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {editFreqType === 'days' && (
+                                      <div className="flex justify-between bg-zinc-800/30 p-2 rounded-lg">
+                                        {daysOfWeek.map((day, i) => (
+                                          <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => toggleEditDay(i)}
+                                            className={`w-6 h-6 rounded-md text-[9px] font-black transition-all ${editFreqDays.includes(i)
+                                              ? 'bg-purple-600 text-white'
+                                              : 'bg-zinc-800 text-zinc-600'
+                                              }`}
+                                          >
+                                            {day}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+
                                   <div className="flex items-center gap-2">
                                     <div className="flex-1" />
                                     <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
@@ -836,17 +980,11 @@ function App() {
                                       {successRate}%
                                     </span>
                                   </div>
-                                  <div
-                                    className="flex-1 cursor-pointer select-none"
-                                    onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
-                                  >
+                                  <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                       <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
                                         {habit.name}
                                       </h3>
-                                      <div className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white rotate-180' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                                        <ChevronDown size={12} />
-                                      </div>
                                     </div>
                                     <div className="flex items-center gap-3 mt-1">
                                       <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
@@ -864,7 +1002,14 @@ function App() {
                             {!isEditing && (
                               <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
+                                  <button
+                                    onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
+                                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
+                                  >
+                                    <Calendar size={14} />
+                                  </button>
                                   <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
+                                  <button onClick={() => archiveHabit(habit.id)} className="p-2 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"><Archive size={14} /></button>
                                   <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                                 </div>
                                 <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
@@ -907,9 +1052,9 @@ function App() {
                                           toggleHistoryDay(habit.id, dateStr, status);
                                         }}
                                         className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group/day ${status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]' :
-                                            status === 'skipped' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
-                                              isToday ? 'bg-zinc-800 border-zinc-600 text-zinc-400' :
-                                                'bg-zinc-950/40 border-zinc-900 text-zinc-800 hover:border-zinc-700'
+                                          status === 'skipped' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                                            isToday ? 'bg-zinc-800 border-zinc-600 text-zinc-400' :
+                                              'bg-zinc-950/40 border-zinc-900 text-zinc-800 hover:border-zinc-700'
                                           }`}
                                       >
                                         <span className={`text-[7px] font-black mb-0.5 ${status ? 'opacity-40' : 'opacity-20'}`}>
