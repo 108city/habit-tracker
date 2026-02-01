@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 
 function App() {
+  const today = new Date().toISOString().split('T')[0]
+  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
   const [habits, setHabits] = useState([])
   const [completions, setCompletions] = useState({})
   const [loading, setLoading] = useState(true)
@@ -26,9 +29,6 @@ function App() {
   const [milestones, setMilestones] = useState([])
   const [showMilestoneForm, setShowMilestoneForm] = useState(false)
   const [newMilestone, setNewMilestone] = useState({ title: '', start_date: today, end_date: '' })
-
-  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-  const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     fetchData()
