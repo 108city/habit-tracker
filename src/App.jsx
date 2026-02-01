@@ -632,15 +632,15 @@ function App() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => startEditMilestone(m)}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-800 hover:text-purple-400 transition-all"
+                                  className="opacity-40 group-hover:opacity-100 p-2 text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all"
                                 >
-                                  <Pencil size={10} />
+                                  <Pencil size={12} />
                                 </button>
                                 <button
                                   onClick={() => deleteMilestone(m.id)}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-800 hover:text-red-900 transition-all"
+                                  className="opacity-40 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all rounded-lg"
                                 >
-                                  <Trash2 size={10} />
+                                  <Trash2 size={12} />
                                 </button>
                               </div>
                             </div>
