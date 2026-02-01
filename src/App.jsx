@@ -17,13 +17,11 @@ function App() {
   // Edit State
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
-  const [editDate, setEditDate] = useState('')
 
   // Frequency State
   const [freqType, setFreqType] = useState('daily')
   const [freqValue, setFreqValue] = useState(1)
   const [freqDays, setFreqDays] = useState([])
-  const [targetDate, setTargetDate] = useState('')
 
   // Milestones State
   const [milestones, setMilestones] = useState([])
@@ -109,8 +107,7 @@ function App() {
       name: newHabitName,
       frequency_type: freqType,
       frequency_value: freqType === 'weekly' ? freqValue : 1,
-      frequency_days: freqType === 'days' ? freqDays : [],
-      target_date: targetDate || null
+      frequency_days: freqType === 'days' ? freqDays : []
     }
 
     try {
@@ -126,7 +123,6 @@ function App() {
       setFreqType('daily')
       setFreqValue(1)
       setFreqDays([])
-      setTargetDate('')
     } catch (error) {
       console.error('Add Habit Failed:', error)
       alert(`FAILED TO ADD HABIT:\n\n${error.message}`)
@@ -137,12 +133,12 @@ function App() {
     try {
       const { error } = await supabase
         .from('habits')
-        .update({ name: editName, target_date: editDate || null })
+        .update({ name: editName })
         .eq('id', id)
 
       if (error) throw error
 
-      setHabits(habits.map(h => h.id === id ? { ...h, name: editName, target_date: editDate || null } : h))
+      setHabits(habits.map(h => h.id === id ? { ...h, name: editName } : h))
       setEditingId(null)
     } catch (error) {
       console.error('Update Failed:', error.message)
@@ -152,7 +148,6 @@ function App() {
   const startEdit = (habit) => {
     setEditingId(habit.id)
     setEditName(habit.name)
-    setEditDate(habit.target_date || '')
   }
 
   const logStatus = async (habitId, status = 'completed') => {
@@ -499,195 +494,173 @@ function App() {
                     </div>
                   )}
 
-                  {/* Target Date Picker */}
-                  <div className="bg-zinc-800/30 p-3 rounded-xl">
-                    <div className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-2">Goal Date (Optional)</div>
-                    <input
-                      type="date"
-                      value={targetDate}
-                      onChange={(e) => setTargetDate(e.target.value)}
-                      min={today}
-                      className="w-full bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-purple-500/50 [color-scheme:dark]"
-                    />
-                  </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
-          </form>
+            </motion.div>
+              )}
+          </AnimatePresence>
+        </form>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-zinc-700">
+          <Loader2 className="animate-spin mb-4" size={32} />
+          <p className="text-xs uppercase tracking-widest font-bold">Synchronizing...</p>
         </div>
+      ) : habits.length === 0 ? (
+        <div className="text-center py-20 px-6 border-2 border-dashed border-zinc-900 rounded-3xl">
+          <h3 className="text-zinc-400 font-bold mb-1">Clean Slate</h3>
+          <p className="text-zinc-600 text-xs">There are no habits currently in your rotation.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <AnimatePresence mode='popLayout'>
+            {habits.map(habit => {
+              const isEditing = editingId === habit.id
+              const currentStatus = completions[habit.id]?.status
+              const isCompleted = currentStatus === 'completed'
+              const isSkipped = currentStatus === 'skipped'
 
-        {/* List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-700">
-            <Loader2 className="animate-spin mb-4" size={32} />
-            <p className="text-xs uppercase tracking-widest font-bold">Synchronizing...</p>
-          </div>
-        ) : habits.length === 0 ? (
-          <div className="text-center py-20 px-6 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <h3 className="text-zinc-400 font-bold mb-1">Clean Slate</h3>
-            <p className="text-zinc-600 text-xs">There are no habits currently in your rotation.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <AnimatePresence mode='popLayout'>
-              {habits.map(habit => {
-                const isEditing = editingId === habit.id
-                const currentStatus = completions[habit.id]?.status
-                const isCompleted = currentStatus === 'completed'
-                const isSkipped = currentStatus === 'skipped'
+              // Success Rate Calculation
+              const allLogs = habit.habit_logs || []
+              const completedLogs = allLogs.filter(l => l.status === 'completed').length
+              const skippedLogs = allLogs.filter(l => l.status === 'skipped').length
 
-                const daysRemaining = habit.target_date ? Math.ceil((new Date(habit.target_date) - new Date()) / (1000 * 60 * 60 * 24)) : null
+              const habitCreatedDate = new Date(habit.created_at)
+              const isValidDate = !isNaN(habitCreatedDate.getTime())
+              const daysSinceCreation = isValidDate
+                ? Math.max(1, Math.ceil((new Date() - habitCreatedDate) / (1000 * 60 * 60 * 24)))
+                : 1
 
-                // Success Rate Calculation
-                const allLogs = habit.habit_logs || []
-                const completedLogs = allLogs.filter(l => l.status === 'completed').length
-                const skippedLogs = allLogs.filter(l => l.status === 'skipped').length
+              const effectiveDays = Math.max(1, daysSinceCreation - skippedLogs)
+              const successRate = Math.min(100, Math.round((completedLogs / effectiveDays) * 100)) || 0
 
-                const habitCreatedDate = new Date(habit.created_at)
-                const isValidDate = !isNaN(habitCreatedDate.getTime())
-                const daysSinceCreation = isValidDate
-                  ? Math.max(1, Math.ceil((new Date() - habitCreatedDate) / (1000 * 60 * 60 * 24)))
-                  : 1
-
-                const effectiveDays = Math.max(1, daysSinceCreation - skippedLogs)
-                const successRate = Math.min(100, Math.round((completedLogs / effectiveDays) * 100)) || 0
-
-                return (
-                  <motion.div
-                    key={habit.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-purple-500/5 border-purple-500/20' :
-                      isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
-                        'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
-                      }`}
-                  >
-                    <div className="p-5 relative z-10 flex items-center justify-between">
-                      <div className="flex-1">
-                        {isEditing ? (
-                          <div className="space-y-3 pr-4">
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
-                            />
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="date"
-                                value={editDate}
-                                onChange={(e) => setEditDate(e.target.value)}
-                                className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-[10px] [color-scheme:dark]"
-                              />
-                              <div className="flex-1" />
-                              <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
-                              <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-purple-600 text-white rounded-lg"><Save size={16} /></button>
-                            </div>
+              return (
+                <motion.div
+                  key={habit.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-purple-500/5 border-purple-500/20' :
+                    isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
+                      'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
+                    }`}
+                >
+                  <div className="p-5 relative z-10 flex items-center justify-between">
+                    <div className="flex-1">
+                      {isEditing ? (
+                        <div className="space-y-3 pr-4">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                          />
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1" />
+                            <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+                            <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-purple-600 text-white rounded-lg"><Save size={16} /></button>
                           </div>
-                        ) : (
-                          <div className="flex items-start gap-3">
-                            <div className="relative flex items-center justify-center shrink-0">
-                              <svg className="w-10 h-10 -rotate-90">
-                                <circle cx="20" cy="20" r="18" className="stroke-zinc-800 fill-none" strokeWidth="3.5" />
-                                <motion.circle
-                                  cx="20" cy="20" r="18"
-                                  initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
-                                  animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
-                                  transition={{ duration: 1, ease: "easeOut" }}
-                                  className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-purple-500' : 'stroke-red-600'}`}
-                                  strokeWidth="3.5" strokeLinecap="round"
-                                />
-                              </svg>
-                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-400' : successRate > 50 ? 'text-purple-400' : 'text-red-400'}`}>
-                                {successRate}
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <div className="relative flex items-center justify-center shrink-0">
+                            <svg className="w-10 h-10 -rotate-90">
+                              <circle cx="20" cy="20" r="18" className="stroke-zinc-800 fill-none" strokeWidth="3.5" />
+                              <motion.circle
+                                cx="20" cy="20" r="18"
+                                initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
+                                animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
+                                transition={{ duration: 1, ease: "easeOut" }}
+                                className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-purple-500' : 'stroke-red-600'}`}
+                                strokeWidth="3.5" strokeLinecap="round"
+                              />
+                            </svg>
+                            <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-400' : successRate > 50 ? 'text-purple-400' : 'text-red-400'}`}>
+                              {successRate}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                {habit.name}
+                              </h3>
+                              <button
+                                onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
+                                className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+                              >
+                                <Calendar size={12} />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
+                                {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
                               </span>
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
-                                  {habit.name}
-                                </h3>
-                                <button
-                                  onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
-                                  className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
-                                >
-                                  <Calendar size={12} />
-                                </button>
-                              </div>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
-                                  {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
-                                </span>
-                                {daysRemaining !== null && (
-                                  <span className={`text-[10px] font-black uppercase ${daysRemaining <= 3 ? 'text-red-500' : 'text-zinc-600'}`}>
-                                    {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
                           </div>
-                        )}
-                      </div>
-
-                      {!isEditing && (
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
-                            <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
-                            <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
-                          </div>
-                          <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
-                          <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
                         </div>
                       )}
                     </div>
 
-                    {/* History Grid */}
-                    <AnimatePresence>
-                      {expandedHistory === habit.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="px-5 pb-5 pt-2 border-t border-zinc-800/50"
-                        >
-                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3">Last 14 Days</div>
-                          <div className="grid grid-cols-7 gap-2">
-                            {[...Array(14)].map((_, i) => {
-                              const d = new Date();
-                              d.setDate(d.getDate() - (13 - i));
-                              const dateStr = d.toISOString().split('T')[0];
-                              const log = habit.habit_logs?.find(l => l.completed_at.split('T')[0] === dateStr);
-                              const status = log?.status;
+                    {!isEditing && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
+                          <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
+                          <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
+                        </div>
+                        <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
+                        <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
+                      </div>
+                    )}
+                  </div>
 
-                              return (
-                                <button
-                                  key={i}
-                                  onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
-                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                                    status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                      dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                        'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
-                                    }`}
-                                >
-                                  <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
-                                  <span className="text-[10px] font-black">{d.getDate()}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
+                  {/* History Grid */}
+                  <AnimatePresence>
+                    {expandedHistory === habit.id && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="px-5 pb-5 pt-2 border-t border-zinc-800/50"
+                      >
+                        <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3">Last 14 Days</div>
+                        <div className="grid grid-cols-7 gap-2">
+                          {[...Array(14)].map((_, i) => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - (13 - i));
+                            const dateStr = d.toISOString().split('T')[0];
+                            const log = habit.habit_logs?.find(l => l.completed_at.split('T')[0] === dateStr);
+                            const status = log?.status;
+
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
+                                className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                                  status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                    dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                      'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
+                                  }`}
+                              >
+                                <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                                <span className="text-[10px] font-black">{d.getDate()}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
+    </div >
   )
 }
 
