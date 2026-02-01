@@ -836,17 +836,17 @@ function App() {
                                       {successRate}%
                                     </span>
                                   </div>
-                                  <div className="flex-1">
+                                  <div
+                                    className="flex-1 cursor-pointer select-none"
+                                    onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
+                                  >
                                     <div className="flex items-center gap-2">
                                       <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
                                         {habit.name}
                                       </h3>
-                                      <button
-                                        onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
-                                        className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
-                                      >
-                                        <Calendar size={12} />
-                                      </button>
+                                      <div className={`p-1 rounded-md transition-all ${expandedHistory === habit.id ? 'bg-zinc-800 text-white rotate-180' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                                        <ChevronDown size={12} />
+                                      </div>
                                     </div>
                                     <div className="flex items-center gap-3 mt-1">
                                       <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
@@ -881,29 +881,54 @@ function App() {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="px-5 pb-5 pt-2 border-t border-zinc-800/50"
                               >
-                                <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3">Last 14 Days</div>
+                                <div className="flex items-center justify-between mb-3 px-1">
+                                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Last 14 Days</div>
+                                  <div className="flex items-center gap-3 text-[8px] font-black uppercase tracking-tighter text-zinc-600">
+                                    <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" /> Done</div>
+                                    <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500/40" /> Snoozed</div>
+                                    <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500/10" /> Missed</div>
+                                  </div>
+                                </div>
                                 <div className="grid grid-cols-7 gap-2">
                                   {[...Array(14)].map((_, i) => {
                                     const d = new Date();
                                     d.setDate(d.getDate() - (13 - i));
                                     const dateStr = d.toLocaleDateString('sv-SE');
+                                    const isToday = dateStr === today;
+
                                     const log = habit.habit_logs?.find(l => (l.completed_at || '').split('T')[0] === dateStr);
                                     const status = log?.status;
 
                                     return (
                                       <button
                                         key={i}
-                                        onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
-                                        className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                                          status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                            dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                              'bg-red-950/20 border-red-900/40 text-red-900/60 hover:border-red-800/60'
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleHistoryDay(habit.id, dateStr, status);
+                                        }}
+                                        className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group/day ${status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]' :
+                                            status === 'skipped' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                                              isToday ? 'bg-zinc-800 border-zinc-600 text-zinc-400' :
+                                                'bg-zinc-950/40 border-zinc-900 text-zinc-800 hover:border-zinc-700'
                                           }`}
                                       >
-                                        <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
-                                        <span className="text-[10px] font-black">{d.getDate()}</span>
+                                        <span className={`text-[7px] font-black mb-0.5 ${status ? 'opacity-40' : 'opacity-20'}`}>
+                                          {d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0)}
+                                        </span>
+                                        {status === 'completed' ? (
+                                          <Check size={10} strokeWidth={4} />
+                                        ) : status === 'skipped' ? (
+                                          <span className="text-[10px] leading-none font-bold">Z</span>
+                                        ) : (
+                                          <span className="text-[10px] font-bold">{d.getDate()}</span>
+                                        )}
+
+                                        {/* Hover Tooltip */}
+                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1.5 bg-zinc-800 text-white text-[9px] font-black rounded-lg opacity-0 group-hover/day:opacity-100 pointer-events-none transition-all scale-75 group-hover/day:scale-100 whitespace-nowrap z-20 border border-zinc-700 shadow-2xl">
+                                          {new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        </div>
                                       </button>
-                                    );
+                                    )
                                   })}
                                 </div>
                               </motion.div>
