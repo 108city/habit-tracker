@@ -216,7 +216,7 @@ function App() {
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-4 font-sans selection:bg-rose-500/30 pb-20">
+    <div className="min-h-screen bg-black text-zinc-100 p-4 font-sans selection:bg-violet-500/30 pb-20">
       <div className="max-w-md mx-auto">
         <header className="mb-10 pt-12">
           <div className="flex items-end justify-between mb-8">
@@ -232,7 +232,7 @@ function App() {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-mono font-black text-rose-500 leading-none">
+              <div className="text-3xl font-mono font-black text-violet-500 leading-none">
                 {progressPercent.toFixed(0)}%
               </div>
               <div className="text-[10px] text-zinc-600 uppercase font-black tracking-widest mt-1">
@@ -249,7 +249,7 @@ function App() {
             </div>
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-4 rounded-2xl">
               <div className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-1">Consistency</div>
-              <div className="text-xl font-bold text-rose-500">
+              <div className="text-xl font-bold text-violet-500">
                 {totalCount > 0 ? (progressPercent > 80 ? 'Elite' : 'Active') : 'Ready'}
               </div>
             </div>
@@ -262,7 +262,7 @@ function App() {
             initial={{ width: 0 }}
             animate={{ width: `${progressPercent}%` }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="h-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.4)]"
+            className="h-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-[0_0_12px_rgba(139,92,246,0.4)]"
           />
         </div>
 
@@ -281,7 +281,7 @@ function App() {
               <button
                 type="submit"
                 disabled={!newHabitName.trim()}
-                className="p-3 bg-rose-500 text-white rounded-2xl hover:bg-rose-600 disabled:opacity-0 disabled:translate-x-4 transition-all active:scale-90 shadow-lg shadow-rose-900/20"
+                className="p-3 bg-violet-600 text-white rounded-2xl hover:bg-violet-500 disabled:opacity-0 disabled:translate-x-4 transition-all active:scale-90 shadow-lg shadow-violet-900/20"
               >
                 <Plus size={24} strokeWidth={3} />
               </button>
@@ -316,7 +316,7 @@ function App() {
                       <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Times per week</span>
                       <div className="flex items-center gap-4">
                         <button type="button" onClick={() => setFreqValue(Math.max(1, freqValue - 1))} className="text-xl font-bold p-1">-</button>
-                        <span className="text-lg font-black text-rose-500 min-w-[2ch] text-center">{freqValue}</span>
+                        <span className="text-lg font-black text-violet-500 min-w-[2ch] text-center">{freqValue}</span>
                         <button type="button" onClick={() => setFreqValue(Math.min(7, freqValue + 1))} className="text-xl font-bold p-1">+</button>
                       </div>
                     </div>
@@ -330,7 +330,7 @@ function App() {
                           type="button"
                           onClick={() => toggleDay(i)}
                           className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
-                            ? 'bg-rose-500 text-white'
+                            ? 'bg-violet-600 text-white'
                             : 'bg-zinc-800 text-zinc-600'
                             }`}
                         >
@@ -348,7 +348,7 @@ function App() {
                       value={targetDate}
                       onChange={(e) => setTargetDate(e.target.value)}
                       min={today}
-                      className="w-full bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-rose-500/50 [color-scheme:dark]"
+                      className="w-full bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-violet-500/50 [color-scheme:dark]"
                     />
                   </div>
                 </motion.div>
@@ -400,7 +400,7 @@ function App() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-rose-500/5 border-rose-500/20' :
+                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${isCompleted ? 'bg-violet-500/5 border-violet-500/20' :
                       isSkipped ? 'bg-amber-500/5 border-amber-500/20' :
                         'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                       }`}
@@ -413,7 +413,7 @@ function App() {
                               type="text"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rose-500"
+                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
                             />
                             <div className="flex items-center gap-2">
                               <input
@@ -424,7 +424,7 @@ function App() {
                               />
                               <div className="flex-1" />
                               <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
-                              <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-rose-500 text-white rounded-lg"><Save size={16} /></button>
+                              <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-violet-600 text-white rounded-lg"><Save size={16} /></button>
                             </div>
                           </div>
                         ) : (
@@ -437,17 +437,17 @@ function App() {
                                   initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
                                   animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
                                   transition={{ duration: 1, ease: "easeOut" }}
-                                  className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-amber-500' : 'stroke-rose-500'}`}
+                                  className={`fill-none ${successRate > 80 ? 'stroke-violet-500' : successRate > 50 ? 'stroke-fuchsia-500' : 'stroke-zinc-700'}`}
                                   strokeWidth="3.5" strokeLinecap="round"
                                 />
                               </svg>
-                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-500' : successRate > 50 ? 'text-amber-500' : 'text-zinc-500'}`}>
+                              <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-violet-400' : successRate > 50 ? 'text-fuchsia-400' : 'text-zinc-500'}`}>
                                 {successRate}
                               </span>
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-rose-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                <h3 className={`font-bold transition-all ${isCompleted ? 'text-violet-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
                                   {habit.name}
                                 </h3>
                                 <button
@@ -458,11 +458,11 @@ function App() {
                                 </button>
                               </div>
                               <div className="flex items-center gap-3 mt-1">
-                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-500' : successRate > 75 ? 'bg-blue-500/10 text-blue-400' : successRate > 50 ? 'bg-amber-500/10 text-amber-500' : 'bg-zinc-800 text-zinc-600'}`}>
+                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-violet-500/10 text-violet-400' : successRate > 75 ? 'bg-fuchsia-500/10 text-fuchsia-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
                                   {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
                                 </span>
                                 {daysRemaining !== null && (
-                                  <span className={`text-[10px] font-black uppercase ${daysRemaining <= 3 ? 'text-rose-500' : 'text-zinc-600'}`}>
+                                  <span className={`text-[10px] font-black uppercase ${daysRemaining <= 3 ? 'text-fuchsia-500' : 'text-zinc-600'}`}>
                                     {daysRemaining === 0 ? 'Last Day' : daysRemaining < 0 ? 'Expired' : `${daysRemaining}d left`}
                                   </span>
                                 )}
@@ -476,10 +476,10 @@ function App() {
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
                             <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
-                            <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
+                            <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-violet-500 hover:bg-violet-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                           </div>
                           <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
-                          <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
+                          <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
                         </div>
                       )}
                     </div>
@@ -506,10 +506,10 @@ function App() {
                                 <button
                                   key={i}
                                   onClick={() => toggleHistoryDay(habit.id, dateStr, status)}
-                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500' :
-                                    status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
-                                      dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
-                                        'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
+                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition-all ${status === 'completed' ? 'bg-violet-500/20 border-violet-500/40 text-violet-400' :
+                                      status === 'skipped' ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' :
+                                        dateStr === today ? 'bg-zinc-900 border-zinc-700 text-zinc-400' :
+                                          'bg-zinc-950/50 border-zinc-900/50 text-zinc-700 hover:border-zinc-800'
                                     }`}
                                 >
                                   <span className="text-[8px] font-bold uppercase">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
