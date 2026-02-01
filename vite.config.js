@@ -16,7 +16,7 @@ export default defineConfig({
         name: 'Some Of Small Efforts',
         short_name: 'SOSE',
         description: 'Track your daily habits',
-        theme_color: '#7c3aed',
+        theme_color: '#9333ea',
         icons: [
           {
             src: 'pwa-192x192.png',
