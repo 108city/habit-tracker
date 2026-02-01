@@ -897,8 +897,8 @@ function App() {
                               'bg-zinc-900/20 border-zinc-800/50 hover:border-zinc-700'
                             }`}
                         >
-                          <div className="p-5 relative z-10 flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="p-5 relative z-10">
+                            <div>
                               {isEditing ? (
                                 <div className="space-y-3 pr-4">
                                   <input
@@ -963,59 +963,63 @@ function App() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-start gap-3">
-                                  <div className="relative flex items-center justify-center shrink-0">
-                                    <svg className="w-10 h-10 -rotate-90">
-                                      <circle cx="20" cy="20" r="18" className="stroke-zinc-800 fill-none" strokeWidth="3.5" />
-                                      <motion.circle
-                                        cx="20" cy="20" r="18"
-                                        initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
-                                        animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
-                                        transition={{ duration: 1, ease: "easeOut" }}
-                                        className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-purple-500' : 'stroke-red-600'}`}
-                                        strokeWidth="3.5" strokeLinecap="round"
-                                      />
-                                    </svg>
-                                    <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-400' : successRate > 50 ? 'text-purple-400' : 'text-red-400'}`}>
-                                      {successRate}%
-                                    </span>
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
-                                        {habit.name}
-                                      </h3>
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-1">
-                                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
-                                        {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
+                                <div className="space-y-3">
+                                  {/* Top Row: Wheel, Name, Snooze, Tick */}
+                                  <div className="flex items-start gap-3">
+                                    <div className="relative flex items-center justify-center shrink-0">
+                                      <svg className="w-10 h-10 -rotate-90">
+                                        <circle cx="20" cy="20" r="18" className="stroke-zinc-800 fill-none" strokeWidth="3.5" />
+                                        <motion.circle
+                                          cx="20" cy="20" r="18"
+                                          initial={{ strokeDasharray: "113", strokeDashoffset: "113" }}
+                                          animate={{ strokeDashoffset: 113 - (113 * successRate) / 100 }}
+                                          transition={{ duration: 1, ease: "easeOut" }}
+                                          className={`fill-none ${successRate > 80 ? 'stroke-emerald-500' : successRate > 50 ? 'stroke-purple-500' : 'stroke-red-600'}`}
+                                          strokeWidth="3.5" strokeLinecap="round"
+                                        />
+                                      </svg>
+                                      <span className={`absolute text-[10px] font-black ${successRate > 80 ? 'text-emerald-400' : successRate > 50 ? 'text-purple-400' : 'text-red-400'}`}>
+                                        {successRate}%
                                       </span>
-                                      {activeMilestone && (
-                                        <span className="text-[7px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1 border-l border-zinc-800/50 pl-2">Current Cycle</span>
-                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <h3 className={`font-bold transition-all ${isCompleted ? 'text-emerald-400 line-through opacity-50' : isSkipped ? 'text-amber-500/60' : 'text-zinc-200'}`}>
+                                          {habit.name}
+                                        </h3>
+                                      </div>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
+                                          {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
+                                        </span>
+                                        {activeMilestone && (
+                                          <span className="text-[7px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1 border-l border-zinc-800/50 pl-2">Current Cycle</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
+                                      <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
+                                    </div>
+                                  </div>
+
+                                  {/* Bottom Row: Management Buttons */}
+                                  <div className="flex items-center gap-2 pl-[52px]">
+                                    <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
+                                      <button
+                                        onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
+                                        className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
+                                      >
+                                        <Calendar size={14} />
+                                      </button>
+                                      <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
+                                      <button onClick={() => archiveHabit(habit.id)} className="p-2 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"><Archive size={14} /></button>
+                                      <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                                     </div>
                                   </div>
                                 </div>
                               )}
                             </div>
-
-                            {!isEditing && (
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
-                                  <button
-                                    onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
-                                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                                  >
-                                    <Calendar size={14} />
-                                  </button>
-                                  <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
-                                  <button onClick={() => archiveHabit(habit.id)} className="p-2 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"><Archive size={14} /></button>
-                                  <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
-                                </div>
-                                <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
-                                <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
-                              </div>
-                            )}
                           </div>
 
                           <AnimatePresence>
