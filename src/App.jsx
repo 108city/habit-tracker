@@ -1,9 +1,38 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp, Trophy, Sparkles, Archive } from 'lucide-react'
+import { Plus, Check, Loader2, Trash2, Pencil, Save, X, Calendar, ChevronDown, ChevronUp, Trophy, Sparkles, Archive, LogOut, BarChart3, HelpCircle } from 'lucide-react'
+import { useAuth } from './components/AuthProvider'
+import Auth from './components/Auth'
+import PremiumGate from './components/PremiumGate'
+import Stats from './components/Stats'
+import UpgradePrompt from './components/UpgradePrompt'
+import Onboarding from './components/Onboarding'
+import HelpModal from './components/HelpModal'
+
+const FREE_HABIT_LIMIT = 3
 
 function App() {
+  const { user, isPremium, trialEndsAt, loading: authLoading, signOut } = useAuth()
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  // Show onboarding for new users (check localStorage)
+  useEffect(() => {
+    if (user) {
+      const seen = localStorage.getItem(`sose_onboarded_${user.id}`)
+      if (!seen) setShowOnboarding(true)
+    }
+  }, [user])
+
+  const completeOnboarding = () => {
+    setShowOnboarding(false)
+    if (user) localStorage.setItem(`sose_onboarded_${user.id}`, 'true')
+  }
+
+  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt - new Date()) / (1000 * 60 * 60 * 24))) : 0
+  const isOnTrial = trialEndsAt && trialDaysLeft > 0
   const today = new Date().toLocaleDateString('sv-SE')
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -30,7 +59,7 @@ function App() {
   const [archivedHabits, setArchivedHabits] = useState([])
 
   // Navigation State
-  const [activeView, setActiveView] = useState('today') // 'today' | 'archive'
+  const [activeView, setActiveView] = useState('today') // 'today' | 'archive' | 'stats'
 
   const [milestones, setMilestones] = useState([])
   const [showMilestoneForm, setShowMilestoneForm] = useState(false)
@@ -40,10 +69,11 @@ function App() {
   const [showCelebration, setShowCelebration] = useState(false)
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (user) fetchData()
+  }, [user])
 
   const fetchData = async () => {
+    if (!user) return
     try {
       setLoading(true)
       // Fetch active habits
@@ -51,6 +81,7 @@ function App() {
         .from('habits')
         .select('*, habit_logs(*)')
         .eq('is_active', true)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (habitsError) throw habitsError
@@ -61,6 +92,7 @@ function App() {
         .from('habits')
         .select('*, habit_logs(*)')
         .eq('is_active', false)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       setArchivedHabits(archivedData || [])
 
@@ -68,6 +100,7 @@ function App() {
       const { data: milestonesData } = await supabase
         .from('milestones')
         .select('*')
+        .eq('user_id', user.id)
         .order('end_date', { ascending: true })
       setMilestones(milestonesData || [])
 
@@ -124,11 +157,18 @@ function App() {
     e.preventDefault()
     if (!newHabitName.trim()) return
 
+    // Enforce free tier habit limit
+    if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
+      setShowUpgrade(true)
+      return
+    }
+
     const payload = {
       name: newHabitName,
       frequency_type: freqType,
       frequency_value: freqType === 'weekly' ? freqValue : 1,
-      frequency_days: freqType === 'days' ? freqDays : []
+      frequency_days: freqType === 'days' ? freqDays : [],
+      user_id: user.id
     }
 
     try {
@@ -308,7 +348,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('milestones')
-        .insert([newMilestone])
+        .insert([{ ...newMilestone, user_id: user.id }])
         .select()
       if (error) throw error
       setMilestones([...milestones, data[0]])
@@ -360,6 +400,16 @@ function App() {
   const totalCount = habits.length
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black text-zinc-100 flex items-center justify-center">
+        <Loader2 className="animate-spin text-purple-500" size={32} />
+      </div>
+    )
+  }
+
+  if (!user) return <Auth />
+
   return (
     <div className="min-h-screen bg-black text-zinc-100 p-4 font-sans selection:bg-purple-500/30 pb-20">
       <div className="max-w-md mx-auto">
@@ -372,48 +422,104 @@ function App() {
                   SOSE
                 </h1>
                 <p className="text-purple-400 text-[10px] uppercase tracking-[0.2em] font-bold mt-1">
-                  Some Of Small Efforts
+                  Sum Of Small Efforts
                 </p>
-                <p className="text-zinc-600 text-[9px] uppercase tracking-[0.1em] font-medium mt-0.5 opacity-50">
+                <p className="text-white text-[9px] uppercase tracking-[0.1em] font-medium mt-0.5 opacity-50">
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-mono font-black text-purple-500 leading-none">
-                {progressPercent.toFixed(0)}%
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowHelp(true)}
+                  className="p-2 text-white/50 hover:text-white transition-colors"
+                  title="Help"
+                >
+                  <HelpCircle size={16} />
+                </button>
+                <button
+                  onClick={signOut}
+                  className="p-2 text-white/50 hover:text-white transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut size={16} />
+                </button>
               </div>
-              <div className="text-[10px] text-zinc-600 uppercase font-black tracking-widest mt-1">
-                Target Met
+              <div className="text-right">
+                <div className="text-3xl font-mono font-black text-purple-500 leading-none">
+                  {progressPercent.toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-white uppercase font-black tracking-widest mt-1">
+                  Target Met
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Trial / Free tier indicator */}
+          {isOnTrial && (
+            <div className="flex items-center justify-between bg-purple-900/20 border border-purple-500/30 rounded-xl px-4 py-2 mb-4">
+              <span className="text-[10px] text-white uppercase font-bold tracking-widest">
+                Premium Trial: {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left
+              </span>
+              <button
+                onClick={() => setShowUpgrade(true)}
+                className="text-[10px] text-purple-400 hover:text-purple-300 uppercase font-bold tracking-widest flex items-center gap-1"
+              >
+                <Sparkles size={10} /> Keep Premium
+              </button>
+            </div>
+          )}
+          {!isPremium && !isOnTrial && (
+            <div className="flex items-center justify-between bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-2 mb-4">
+              <span className="text-[10px] text-white uppercase font-bold tracking-widest">
+                Habits: {habits.length}/{FREE_HABIT_LIMIT}
+              </span>
+              <button
+                onClick={() => setShowUpgrade(true)}
+                className="text-[10px] text-purple-400 hover:text-purple-300 uppercase font-bold tracking-widest flex items-center gap-1"
+              >
+                <Sparkles size={10} /> Upgrade
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-1 bg-zinc-900/40 p-1 rounded-2xl border border-zinc-800/50 mb-8">
             <button
               onClick={() => setActiveView('today')}
-              className={`flex-1 py-3 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${activeView === 'today' ? 'bg-zinc-100 text-zinc-900 shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex-1 py-3 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${activeView === 'today' ? 'bg-zinc-100 text-zinc-900 shadow-lg' : 'text-white hover:text-white'}`}
             >
               Today
             </button>
             <button
+              onClick={() => setActiveView('stats')}
+              className={`flex-1 py-3 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${activeView === 'stats' ? 'bg-zinc-100 text-zinc-900 shadow-lg' : 'text-white hover:text-white'}`}
+            >
+              Stats
+            </button>
+            <button
               onClick={() => setActiveView('archive')}
-              className={`flex-1 py-3 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${activeView === 'archive' ? 'bg-zinc-100 text-zinc-900 shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex-1 py-3 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${activeView === 'archive' ? 'bg-zinc-100 text-zinc-900 shadow-lg' : 'text-white hover:text-white'}`}
             >
               Archive
             </button>
           </div>
 
-          {activeView === 'today' ? (
+          {activeView === 'stats' ? (
+            <PremiumGate isPremium={isPremium} featureName="Stats">
+              <Stats />
+            </PremiumGate>
+          ) : activeView === 'today' ? (
             <>
               {/* Stats Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-900/40 border border-zinc-800/50 p-4 rounded-2xl">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-1">Today</div>
-                  <div className="text-xl font-bold text-zinc-200">{completedCount} <span className="text-sm text-zinc-600 font-medium">/ {totalCount}</span></div>
+                  <div className="text-white text-[10px] uppercase font-bold tracking-widest mb-1">Today</div>
+                  <div className="text-xl font-bold text-zinc-200">{completedCount} <span className="text-sm text-white font-medium">/ {totalCount}</span></div>
                 </div>
                 <div className="bg-zinc-900/40 border border-zinc-800/50 p-4 rounded-2xl">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-1">Consistency</div>
+                  <div className="text-white text-[10px] uppercase font-bold tracking-widest mb-1">Consistency</div>
                   <div className="text-xl font-bold text-purple-500">
                     {totalCount > 0 ? (progressPercent > 80 ? 'Elite' : 'Active') : 'Ready'}
                   </div>
@@ -423,7 +529,7 @@ function App() {
               {/* Milestones Section */}
               <div className="mt-8 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Current Milestones</h2>
+                  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Current Blocks</h2>
                   <button
                     onClick={() => setShowMilestoneForm(!showMilestoneForm)}
                     className="text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-widest"
@@ -451,7 +557,7 @@ function App() {
                       />
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-[8px] uppercase font-black text-zinc-600 ml-1">Start</label>
+                          <label className="text-[8px] uppercase font-black text-white ml-1">Start</label>
                           <input
                             type="date"
                             value={newMilestone.start_date}
@@ -461,7 +567,7 @@ function App() {
                           />
                         </div>
                         <div>
-                          <label className="text-[8px] uppercase font-black text-zinc-600 ml-1">End</label>
+                          <label className="text-[8px] uppercase font-black text-white ml-1">End</label>
                           <input
                             type="date"
                             value={newMilestone.end_date}
@@ -546,7 +652,7 @@ function App() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setEditingMilestoneId(null)}
-                                className="flex-1 py-2 bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:text-zinc-200"
+                                className="flex-1 py-2 bg-zinc-800 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:text-zinc-200"
                               >
                                 Cancel
                               </button>
@@ -564,7 +670,7 @@ function App() {
                               <div>
                                 <h3 className="text-lg font-black tracking-tight text-white mb-1 uppercase italic">{m.title}</h3>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{daysLeft} Days Remaining</span>
+                                  <span className="text-[10px] font-bold text-white uppercase tracking-widest">{daysLeft} Days Remaining</span>
                                   <div className="w-1 h-1 rounded-full bg-zinc-800" />
                                   <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">{timeProgress}% Time Elapsed</span>
                                 </div>
@@ -573,7 +679,7 @@ function App() {
                                 <div className={`text-2xl font-mono font-black ${mSuccessRate > 80 ? 'text-emerald-500' : mSuccessRate > 50 ? 'text-purple-500' : 'text-red-500'}`}>
                                   {mSuccessRate}%
                                 </div>
-                                <div className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Block Success</div>
+                                <div className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Block Success</div>
                               </div>
                             </div>
                             <div className="relative h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
@@ -582,13 +688,13 @@ function App() {
                             <div className="absolute top-4 right-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                               <button
                                 onClick={() => startEditMilestone(m)}
-                                className="p-1.5 bg-zinc-800/80 text-zinc-400 hover:text-purple-400 rounded-lg backdrop-blur-sm"
+                                className="p-1.5 bg-zinc-800/80 text-white hover:text-purple-400 rounded-lg backdrop-blur-sm"
                               >
                                 <Pencil size={12} />
                               </button>
                               <button
                                 onClick={() => deleteMilestone(m.id)}
-                                className="p-1.5 bg-zinc-800/80 text-zinc-500 hover:text-red-500 rounded-lg backdrop-blur-sm"
+                                className="p-1.5 bg-zinc-800/80 text-white hover:text-red-500 rounded-lg backdrop-blur-sm"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -604,12 +710,12 @@ function App() {
           ) : (
             <div className="mt-8 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Completed Cycles</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Completed Cycles</h2>
               </div>
               <div className="grid gap-3">
                 {milestones.filter(m => new Date(m.end_date) < new Date(today)).length === 0 ? (
                   <div className="text-center py-20 px-6 border-2 border-dashed border-zinc-900 rounded-3xl">
-                    <p className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest">No achievements archived yet.</p>
+                    <p className="text-white text-[10px] uppercase font-bold tracking-widest">No achievements archived yet.</p>
                   </div>
                 ) : (
                   milestones.filter(m => new Date(m.end_date) < new Date(today)).map(m => {
@@ -647,7 +753,7 @@ function App() {
                               type="text"
                               value={editMilestoneData.title}
                               onChange={e => setEditMilestoneData({ ...editMilestoneData, title: e.target.value })}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-xs text-zinc-300 focus:border-purple-500 outline-none"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-xs text-white focus:border-purple-500 outline-none"
                               placeholder="Title"
                             />
                             <div className="grid grid-cols-2 gap-2">
@@ -655,19 +761,19 @@ function App() {
                                 type="date"
                                 value={editMilestoneData.start_date}
                                 onChange={e => setEditMilestoneData({ ...editMilestoneData, start_date: e.target.value })}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-zinc-400 [color-scheme:dark]"
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-white [color-scheme:dark]"
                               />
                               <input
                                 type="date"
                                 value={editMilestoneData.end_date}
                                 onChange={e => setEditMilestoneData({ ...editMilestoneData, end_date: e.target.value })}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-zinc-400 [color-scheme:dark]"
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-white [color-scheme:dark]"
                               />
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setEditingMilestoneId(null)}
-                                className="flex-1 py-1.5 bg-zinc-900 text-zinc-500 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:text-zinc-300"
+                                className="flex-1 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:text-white"
                               >
                                 Cancel
                               </button>
@@ -682,8 +788,8 @@ function App() {
                         ) : (
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-tight italic">{m.title}</h4>
-                              <p className="text-[8px] text-zinc-700 uppercase font-bold mt-1 tracking-widest leading-none">
+                              <h4 className="text-xs font-bold text-white uppercase tracking-tight italic">{m.title}</h4>
+                              <p className="text-[8px] text-white uppercase font-bold mt-1 tracking-widest leading-none">
                                 {new Date(m.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — {new Date(m.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                               </p>
                             </div>
@@ -696,13 +802,13 @@ function App() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => startEditMilestone(m)}
-                                  className="opacity-40 group-hover:opacity-100 p-2 text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all"
+                                  className="opacity-40 group-hover:opacity-100 p-2 text-white hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-all"
                                 >
                                   <Pencil size={12} />
                                 </button>
                                 <button
                                   onClick={() => deleteMilestone(m.id)}
-                                  className="opacity-40 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all rounded-lg"
+                                  className="opacity-40 group-hover:opacity-100 p-2 text-white hover:text-red-500 hover:bg-red-500/10 transition-all rounded-lg"
                                 >
                                   <Trash2 size={12} />
                                 </button>
@@ -718,18 +824,18 @@ function App() {
 
               {/* Archived Habits Section */}
               <div className="mt-8">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">Archived Habits</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-white mb-4">Archived Habits</h2>
                 {archivedHabits.length === 0 ? (
                   <div className="text-center py-12 px-6 border-2 border-dashed border-zinc-900 rounded-3xl">
-                    <p className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest">No archived habits.</p>
+                    <p className="text-white text-[10px] uppercase font-bold tracking-widest">No archived habits.</p>
                   </div>
                 ) : (
                   <div className="grid gap-3">
                     {archivedHabits.map(habit => (
                       <div key={habit.id} className="bg-zinc-950 border border-zinc-900/50 p-4 rounded-2xl group flex items-center justify-between">
                         <div>
-                          <h4 className="text-sm font-bold text-zinc-500">{habit.name}</h4>
-                          <p className="text-[8px] text-zinc-700 uppercase font-bold mt-1 tracking-widest">
+                          <h4 className="text-sm font-bold text-white">{habit.name}</h4>
+                          <p className="text-[8px] text-white uppercase font-bold mt-1 tracking-widest">
                             {habit.frequency_type === 'daily' ? 'Daily' :
                               habit.frequency_type === 'weekly' ? `${habit.frequency_value}x/week` :
                                 `${daysOfWeek.filter((_, i) => (habit.frequency_days || []).includes(i)).join(', ')}`}
@@ -770,7 +876,7 @@ function App() {
                     onChange={(e) => setNewHabitName(e.target.value)}
                     onFocus={() => setShowOptions(true)}
                     placeholder="Commit to something..."
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-lg placeholder:text-zinc-700 p-1"
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-lg placeholder:text-white p-1"
                   />
                   <button
                     type="submit"
@@ -797,7 +903,7 @@ function App() {
                             onClick={() => setFreqType(type)}
                             className={`flex-1 py-2 text-[10px] uppercase font-black tracking-widest rounded-xl transition-all ${freqType === type
                               ? 'bg-zinc-100 text-zinc-900'
-                              : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
+                              : 'bg-zinc-800/50 text-white hover:bg-zinc-800'
                               }`}
                           >
                             {type}
@@ -807,7 +913,7 @@ function App() {
 
                       {freqType === 'weekly' && (
                         <div className="flex items-center justify-between bg-zinc-800/30 p-3 rounded-xl">
-                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Times per week</span>
+                          <span className="text-xs font-bold text-white uppercase tracking-widest">Times per week</span>
                           <div className="flex items-center gap-4">
                             <button type="button" onClick={() => setFreqValue(Math.max(1, freqValue - 1))} className="text-xl font-bold p-1">-</button>
                             <span className="text-lg font-black text-purple-500 min-w-[2ch] text-center">{freqValue}</span>
@@ -825,7 +931,7 @@ function App() {
                               onClick={() => toggleDay(i)}
                               className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${freqDays.includes(i)
                                 ? 'bg-purple-600 text-white'
-                                : 'bg-zinc-800 text-zinc-600'
+                                : 'bg-zinc-800 text-white'
                                 }`}
                             >
                               {day}
@@ -840,7 +946,7 @@ function App() {
             </div>
 
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-zinc-700">
+              <div className="flex flex-col items-center justify-center py-20 text-white">
                 <Loader2 className="animate-spin mb-4" size={32} />
                 <p className="text-xs uppercase tracking-widest font-bold">Synchronizing...</p>
               </div>
@@ -918,7 +1024,7 @@ function App() {
                                           onClick={() => setEditFreqType(type)}
                                           className={`flex-1 py-1.5 text-[9px] uppercase font-black tracking-widest rounded-lg transition-all ${editFreqType === type
                                             ? 'bg-zinc-100 text-zinc-900'
-                                            : 'bg-zinc-800/50 text-zinc-500 hover:bg-zinc-800'
+                                            : 'bg-zinc-800/50 text-white hover:bg-zinc-800'
                                             }`}
                                         >
                                           {type}
@@ -928,7 +1034,7 @@ function App() {
 
                                     {editFreqType === 'weekly' && (
                                       <div className="flex items-center justify-between bg-zinc-800/30 p-2 rounded-lg">
-                                        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Times/week</span>
+                                        <span className="text-[9px] font-bold text-white uppercase tracking-widest">Times/week</span>
                                         <div className="flex items-center gap-3">
                                           <button type="button" onClick={() => setEditFreqValue(Math.max(1, editFreqValue - 1))} className="text-sm font-bold p-1">-</button>
                                           <span className="text-sm font-black text-purple-500 min-w-[2ch] text-center">{editFreqValue}</span>
@@ -946,7 +1052,7 @@ function App() {
                                             onClick={() => toggleEditDay(i)}
                                             className={`w-6 h-6 rounded-md text-[9px] font-black transition-all ${editFreqDays.includes(i)
                                               ? 'bg-purple-600 text-white'
-                                              : 'bg-zinc-800 text-zinc-600'
+                                              : 'bg-zinc-800 text-white'
                                               }`}
                                           >
                                             {day}
@@ -958,7 +1064,7 @@ function App() {
 
                                   <div className="flex items-center gap-2">
                                     <div className="flex-1" />
-                                    <button onClick={() => setEditingId(null)} className="p-1.5 text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+                                    <button onClick={() => setEditingId(null)} className="p-1.5 text-white hover:text-white"><X size={16} /></button>
                                     <button onClick={() => updateHabit(habit.id)} className="p-1.5 bg-purple-600 text-white rounded-lg"><Save size={16} /></button>
                                   </div>
                                 </div>
@@ -989,17 +1095,17 @@ function App() {
                                         </h3>
                                       </div>
                                       <div className="flex items-center gap-3 mt-1">
-                                        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-zinc-400' : 'bg-red-500/10 text-red-500'}`}>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${successRate > 90 ? 'bg-emerald-500/10 text-emerald-400' : successRate > 75 ? 'bg-purple-500/10 text-purple-400' : successRate > 50 ? 'bg-zinc-800 text-white' : 'bg-red-500/10 text-red-500'}`}>
                                           {successRate > 90 ? 'Mythic' : successRate > 75 ? 'Elite' : successRate > 50 ? 'Active' : 'Grinding'}
                                         </span>
                                         {activeMilestone && (
-                                          <span className="text-[7px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1 border-l border-zinc-800/50 pl-2">Current Cycle</span>
+                                          <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white ml-1 border-l border-zinc-800/50 pl-2">Current Cycle</span>
                                         )}
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <button onClick={() => logStatus(habit.id, 'skipped')} className={`w-10 h-10 text-xl rounded-xl flex items-center justify-center transition-all active:scale-90 ${isSkipped ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-zinc-900/50 hover:bg-amber-500/5'}`}>😴</button>
-                                      <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
+                                      <button onClick={() => logStatus(habit.id, 'completed')} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isCompleted ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-zinc-800 text-white hover:text-zinc-100'}`}><Check size={22} className={isCompleted ? 'stroke-[3px]' : ''} /></button>
                                     </div>
                                   </div>
 
@@ -1008,13 +1114,13 @@ function App() {
                                     <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
                                       <button
                                         onClick={() => setExpandedHistory(expandedHistory === habit.id ? null : habit.id)}
-                                        className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
+                                        className="p-2 text-white hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
                                       >
                                         <Calendar size={14} />
                                       </button>
-                                      <button onClick={() => startEdit(habit)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
-                                      <button onClick={() => archiveHabit(habit.id)} className="p-2 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"><Archive size={14} /></button>
-                                      <button onClick={() => deleteHabit(habit.id)} className="p-2 text-zinc-500 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
+                                      <button onClick={() => startEdit(habit)} className="p-2 text-white hover:text-white hover:bg-zinc-800 rounded-lg transition-all"><Pencil size={14} /></button>
+                                      <button onClick={() => archiveHabit(habit.id)} className="p-2 text-white hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"><Archive size={14} /></button>
+                                      <button onClick={() => deleteHabit(habit.id)} className="p-2 text-white hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                                     </div>
                                   </div>
                                 </div>
@@ -1031,8 +1137,8 @@ function App() {
                                 className="px-5 pb-5 pt-2 border-t border-zinc-800/50"
                               >
                                 <div className="flex items-center justify-between mb-3 px-1">
-                                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Last 14 Days</div>
-                                  <div className="flex items-center gap-3 text-[8px] font-black uppercase tracking-tighter text-zinc-600">
+                                  <div className="text-[10px] text-white font-bold uppercase tracking-widest">Last 14 Days</div>
+                                  <div className="flex items-center gap-3 text-[8px] font-black uppercase tracking-tighter text-white">
                                     <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" /> Done</div>
                                     <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500/40" /> Snoozed</div>
                                     <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500/10" /> Missed</div>
@@ -1057,7 +1163,7 @@ function App() {
                                         }}
                                         className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all relative group/day ${status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]' :
                                           status === 'skipped' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
-                                            isToday ? 'bg-zinc-800 border-zinc-600 text-zinc-400' :
+                                            isToday ? 'bg-zinc-800 border-zinc-600 text-white' :
                                               'bg-zinc-950/40 border-zinc-900 text-zinc-800 hover:border-zinc-700'
                                           }`}
                                       >
@@ -1145,7 +1251,7 @@ function App() {
                   DOMINANCE<br />ACHIEVED
                 </h2>
                 <div className="h-0.5 w-12 bg-purple-500 mx-auto rounded-full" />
-                <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em] leading-relaxed">
+                <p className="text-white text-[10px] font-bold uppercase tracking-[0.3em] leading-relaxed">
                   Every target met.<br />The standard has been set.
                 </p>
               </div>
@@ -1165,6 +1271,9 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      {showUpgrade && <UpgradePrompt onClose={() => setShowUpgrade(false)} />}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showOnboarding && <Onboarding onComplete={completeOnboarding} />}
     </div>
   )
 }

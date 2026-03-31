@@ -13,7 +13,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Some Of Small Efforts',
+        name: 'Sum Of Small Efforts',
         short_name: 'SOSE',
         description: 'Track your daily habits',
         theme_color: '#9333ea',
