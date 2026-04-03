@@ -1,14 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { Loader2 } from 'lucide-react'
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [message, setMessage] = useState(null)
 
   const handleGoogleSignIn = async () => {
     setError(null)
@@ -19,23 +13,6 @@ export default function Auth() {
       },
     })
     if (error) setError(error.message)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setMessage(null)
-
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
-    } else {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setError(error.message)
-      else setMessage('Check your email for a confirmation link!')
-    }
-    setLoading(false)
   }
 
   return (
@@ -52,7 +29,7 @@ export default function Auth() {
 
         <button
           onClick={handleGoogleSignIn}
-          className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-3 mb-6"
+          className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-3"
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -63,61 +40,9 @@ export default function Auth() {
           Continue with Google
         </button>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-zinc-800" />
-          <span className="text-white text-[10px] uppercase tracking-widest font-bold">or</span>
-          <div className="flex-1 h-px bg-zinc-800" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-purple-500 transition-colors"
-            />
-          </div>
-          <div>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-purple-500 transition-colors"
-            />
-          </div>
-
-          {error && (
-            <p className="text-red-400 text-xs text-center">{error}</p>
-          )}
-          {message && (
-            <p className="text-emerald-400 text-xs text-center">{message}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={14} className="animate-spin" />}
-            {isLogin ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="text-center text-white text-xs mt-6">
-          {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button
-            onClick={() => { setIsLogin(!isLogin); setError(null); setMessage(null) }}
-            className="text-purple-400 hover:text-purple-300 font-bold"
-          >
-            {isLogin ? 'Sign Up' : 'Sign In'}
-          </button>
-        </p>
+        {error && (
+          <p className="text-red-400 text-xs text-center mt-4">{error}</p>
+        )}
       </div>
     </div>
   )
