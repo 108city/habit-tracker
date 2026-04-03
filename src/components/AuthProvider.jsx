@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { App as CapApp } from '@capacitor/app'
 import { supabase } from '../supabaseClient'
 
 const AuthContext = createContext({})
@@ -27,6 +28,19 @@ export function AuthProvider({ children }) {
       else {
         setIsPremium(false)
         setLoading(false)
+      }
+    })
+
+    // Handle deep link callback from OAuth on mobile
+    CapApp.addListener('appUrlOpen', async ({ url }) => {
+      if (url.includes('login-callback')) {
+        // Extract tokens from the URL hash
+        const hashParams = new URLSearchParams(url.split('#')[1] || '')
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        }
       }
     })
 
